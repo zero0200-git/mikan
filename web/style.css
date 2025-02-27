@@ -1,0 +1,218 @@
+html:root {
+    --text: rgba(200, 200, 200, 1);
+    --background: rgba(0, 0, 0, 1);
+    --round: 0.4rem;
+    --blur: blur(3px);
+}
+*{
+	box-sizing:border-box;
+	transition:0.4s cubic-bezier(0.6,0,0.4,1);
+	animation:0.4s cubic-bezier(0.6,0,0.4,1) 1;
+	font-family: "Segoe UI","Roboto","Noto Sans";
+}
+a{
+	cursor: pointer;
+}
+a:hover{
+	text-decoration: underline;
+}
+html,body {
+	height: 100%;
+}
+body {
+	background: var(--background);
+	color: var(--text);
+	margin: 0;
+	overflow: hidden;
+}
+#app {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+button {
+	background: var(--background);
+	color: var(--text);
+	border-radius: var(--round);
+	padding: 0.4rem;
+	border: 0.1rem solid var(--text);
+	cursor: pointer;
+}
+header {
+	display: flex;
+	flex-direction: row;
+	position: sticky;
+	height: fit-content;
+	top: 0;
+	height: 2rem;
+}
+header div {
+	font-size: 1.2rem;
+	font-weight: 500;
+	align-content: center;
+}
+#container {
+	display: flex;
+	flex-direction: row;
+    justify-content: space-between;
+    height: calc(100% - 2rem);
+}
+#container > * {
+	margin: 0.2rem;
+}
+nav {
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	width: calc(10% + 12rem);
+}
+#content { 
+	overflow-y: scroll;
+	width: 100%;
+}
+svg {
+	width: 1rem;
+	fill: none;
+	stroke: var(--text);
+	stroke-width: 2;
+}
+#serieCover{
+	height: 40%;
+	overflow: hidden;
+	padding: 0.4rem;
+}
+#serieCover img{
+	height: 100%;
+	width: 100%;
+	object-fit: contain;
+}
+#log{
+	height: calc(100% - 2rem);
+	min-height: 6rem;
+	overflow: hidden;
+	padding: 0.4rem;
+}
+#log>div:nth-child(1){
+	border-bottom: 1px solid;
+}
+#log>div:nth-child(2){
+	overflow-y: scroll;
+	height: 100%;
+	
+}
+#log>div:nth-child(2)>*{
+	margin: 0;
+	font-size: 0.9rem;
+	line-height: 1rem;
+	word-break: break-word;
+    padding-bottom: 2rem;
+}
+.formContainer > *{
+	width: 20vw;
+	min-width: 20rem;
+	max-width: 80vw;
+	padding: 0.6rem 1rem;
+    border: 1px solid #fff;
+	border: 0.1rem solid var(--text);
+    border-radius: var(--round);
+	backdrop-filter: var(--blur);
+    z-index: 10;
+	overflow: auto;
+}
+.formContainer.center > * {
+	position: fixed;
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+}
+.formContainer > .title {
+	font-size: 1.2rem;
+	font-weight: 600;
+}
+.formContainer > .form {
+	display: flex;
+    flex-direction: column;
+	padding: 0.4rem;
+}
+.formContainer > .form > * {
+	margin: 0.2rem;
+}
+.formContainer > .action {
+	display: flex;
+    flex-direction: row-reverse;
+}
+.formContainer > .action > * {
+	margin: 0.2rem;
+}
+
+#login {
+	margin-left: auto;
+}
+#content[data-display-type=table] { 
+	display: block;
+	overflow-y: scroll;
+	height: 100%;
+}
+#content[data-display-type=table] .header { 
+	position: sticky;
+    backdrop-filter: var(--blur);
+	background: transparent;
+    top: 0;
+	font-weight: bold;
+	text-transform: capitalize;
+	z-index: 1;
+	height: 2rem;
+}
+#content[data-display-type=table] > * {
+	display: table-row;
+	height: 100%;
+	position: relative;
+}
+#content[data-display-type=table] > * > td,#content[data-display-type=table] > * > th {
+	display: table-cell;
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	vertical-align: top;
+}
+#content[data-display-type=table] > * > td > *,#content[data-display-type=table] > * > th > * {
+	background: var(--background);
+	padding: 0.2rem 0.4rem;
+    border: 1px solid;
+	display:-webkit-box;
+	display:box;
+	-moz-box-orient:vertical;
+	-webkit-box-orient:vertical;
+	box-orient:vertical;
+	-webkit-line-clamp:2;
+	line-clamp:2;
+	word-break:break-word;
+	overflow:hidden;
+	white-space: pre-wrap;
+	height: 3.2rem;
+	line-height: 1.4rem;
+}
+#content[data-display-type=table] > * > td:nth-child(1),#content[data-display-type=table] > * > th:nth-child(1) {
+	width: 40%;
+}
+#content[data-display-type=table] > *[data-select="true"] {
+	text-decoration:underline;
+}
+.context{
+	position: absolute;
+	top: 0.2rem;
+	left: 0.2rem;
+	display: flex;
+	flex-direction: column;
+	padding: 0.4rem;
+	border: 0.1rem solid var(--text);
+	border-radius: var(--round);
+	backdrop-filter: var(--blur);
+	z-index: 10;
+}
+.context > button{
+	background: none;
+	border-left: none;
+	border-right: none;
+	border-radius: 0;
+}
