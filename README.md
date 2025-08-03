@@ -30,5 +30,5 @@ And login with previous setup user
 ### additional format
 ##### `_%x{value}x%_` will add `x` if have value eg. `_%group [{group}]%_` will be `group ["translate_group"]` if have translate group name in chapter or ` `(nothing) if it not have
 #### `_%{value:>0x}%_` will add 0 if value length less than x eg. `_%{page:>03}%_` will be `023` or `004.5` if it has decimal
-## 6. Go to Search tab to start adding first manga
+## 5. Go to Search tab to start adding first manga
 #### `right click for more action`
