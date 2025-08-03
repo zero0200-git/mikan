@@ -1,6 +1,6 @@
 # How to use
 ## 1. Setup config.ini file
-### 1.1 Run `python mdcli.py setup` to config and add/reset user
+### Run `python mdcli.py setup` to config and add/reset user
 ### *need ssl certificate to function*
 #### `db_location` is a manga db location
 #### `ssl_crt_location` is a ssl cert file location
