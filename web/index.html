@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="font-size: 16px;">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mikan Web Client</title>
 </head>
 <body><div class="loading"style="position:fixed;background:#000;top:0;bottom:0;left:0;right:0;z-index:10000;text-align:center;">Loading ...<script>function load(){document.removeEventListener("DOMContentLoaded",load);load=undefined;setTimeout(function(){document.querySelector(".loading").remove()},600)};document.addEventListener("DOMContentLoaded",load)</script></div>
     <div id="app">
+        <div id="appbgblur"></div>
         <header>
-            <button><svg viewBox="0 0 32 32"><path d="M4,4 l24,24 m-24,0 l24,-24"></path></svg></button>
+            <button><svg viewBox="0 0 32 32"><path d="M2,2 l26,0 m0,14 l-26,0 m0,14 l26,0"></path></svg></button>
             <div style="font-size: 1.2rem;align-content: center;">🍊 Mikan Web Client</div>
             <button id="login">Login</button>
         </header>
@@ -16,9 +17,11 @@
             <nav>
                 <button value="search">Search</button>
                 <button value="knownseries">Series</button>
+                <button value="knowngroups">Group</button>
                 <button value="settings">Settings</button>
+                <button value="progress">Progress</button>
                 <div id="serieCover">
-                    <img src="" style="display:none;">
+                    <img src="" alt=" " style="display:none;">
                 </div>
                 <div id="log">
                     <div>Log</div>
@@ -32,77 +35,8 @@
         
     </div>
 
-<div id="context">
-    <button>test1</button>
-    <button>test2</button>
-    <button>test3</button>
-</div>
-
-<script>
-    async function reloadCss() {
-        let links = document.querySelectorAll("link");
-        for (let i=0;i<links.length;i++) {
-            let l = links[i];
-            let p = l.previousElementSibling;
-            let s = l.href;
-            if(p != null) {
-                l.remove();
-                let li = document.createElement("link");
-                li.type = "text/css";
-                li.rel = "stylesheet";
-                li.href = s;
-                p.after(li);
-            }
-            else {
-                p = l.parentNode;
-                l.remove();
-                let li = document.createElement("link");
-                li.type = "text/css";
-                li.rel = "stylesheet";
-                li.href = s;
-                p.append(li);
-            }
-        }
-    }
-    async function reloadJs() {
-        let scripts = document.querySelectorAll("script[src]");
-        for (let i=0;i<scripts.length;i++) {
-            let l = scripts[i];
-            let p = l.previousElementSibling;
-            let s = l.src;
-            if(p != null) {
-                l.remove();
-                let li = document.createElement("script");
-                li.src = s;
-                p.after(li);
-            }
-            else {
-                p = l.parentNode;
-                l.remove();
-                let li = document.createElement("link");
-                li.src = s;
-                p.append(li);
-            }
-        }
-    }
-    async function debugScript() {
-        let dDiv= document.createElement("div");
-        let dDivScript = document.createElement("button");
-        let dDivStyle = document.createElement("button");
-
-        dDiv.append(dDivScript,dDivStyle)
-        document.body.append(dDiv)
-        dDiv.style.position="fixed";
-        dDiv.style.bottom="0";
-
-        dDivScript.innerHTML = "reload script";
-        dDivStyle.innerHTML = "reload style";
-        dDivScript.addEventListener("click",reloadJs);
-        dDivStyle.addEventListener("click",reloadCss);
-    }
-    debugScript()
-</script>
-<link type="text/css" rel="stylesheet" href="style.css">
-<script src="script.js"></script>
+<div id="context"></div>
+<link type="text/css" rel="stylesheet" href="./style.css">
+<script src="./script.js"></script>
 </body>
 </html>
