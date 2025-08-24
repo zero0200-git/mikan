@@ -524,7 +524,7 @@ for (let i=0; i<arg["data"].length; i++) {
 
 		let cc = []
 		const acKey=Object.keys(arg["action"]);
-		if(acKey.length>0||"action" in arg["data"][i]){
+		if(acKey.length>0){
 		for (const ac of acKey) {
 			cc.push({
 				id: arg["action"][ac],
@@ -536,6 +536,8 @@ for (let i=0; i<arg["data"].length; i++) {
 				}
 			});
 		}
+		}
+		if("action" in arg["data"][i]){
 		for (const ac of arg["data"][i]["action"]) {
 			cc.push({
 				id: ac["name"],
@@ -544,8 +546,8 @@ for (let i=0; i<arg["data"].length; i++) {
 				action: ()=>ac["func"]()
 			});
 		}
-		dataCol.addEventListener("contextmenu", (e) => {contextMenu({id:"tableDataRow"+(i+1),location:dataCol,event:e,context:cc})});
 		}
+		if(acKey.length>0||"action" in arg["data"][i]){dataCol.addEventListener("contextmenu", (e) => {contextMenu({id:"tableDataRow"+(i+1),location:dataCol,event:e,context:cc})})}
 		dataSec.append(dataCol);
 		dataLoad.observe(dataCol);
 	}
