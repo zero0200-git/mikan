@@ -107,61 +107,89 @@ if (response.status===200) {
 }
 }
 async function serverEvent() {
-try{
-	const response = await fetch(mikan["server"]+`/api/log`, {
-		headers: {
-			'Authorization': `Bearer ${mikan["token"]}`,
-			"Accept": "text/event-stream",
-			"Cache-Control": "no-cache"
-		}
-	});
+	let retryCount = 0;
+	let waitTime = 1000;
+	const maxWaitTime = 30000;
 
-	if (response.status === 200) {
-		log('Connected to server log');
-		const reader = response.body.getReader();
-		const decoder = new TextDecoder();
-		let buffer = "";
-
-		while (true) {
-			const { value, done } = await reader.read();
-			if (done) {
-				log('Server connection closed');
-				break;
-			}
-			buffer += decoder.decode(value, { stream: true });
-			const lines = buffer.split('\n\n');
-			buffer = lines.pop() || '';
-
-			for(let line of lines){
-				if(line.trim().length>0){
-					line = JSON.parse(line)
-					if(line["type"] == "text"){
-					log("["+line["timestamp"]+" server time] "+line["data"]);
-					}
-					else if(line["type"] == "progress"){
-					mikan.progress = JSON.parse(line["data"]);
-					if(history.state != null && history.state.page == "progress"){showProgress()}
-					}
-					else{log(line)}
+	async function connect() {
+		try {
+			const response = await fetch(mikan["server"]+`/api/log`, {
+				headers: {
+					'Authorization': `Bearer ${mikan["token"]}`,
+					"Accept": "text/event-stream",
+					"Cache-Control": "no-cache",
+					"Connection": "keep-alive"
 				}
+			});
+
+			if (response.status === 200) {
+				log('Connected to server log');
+				retryCount = 0;
+				waitTime = 1000;
+
+				const reader = response.body.getReader();
+				const decoder = new TextDecoder();
+				let buffer = "";
+
+				while (true) {
+					const { value, done } = await reader.read();
+					if (done) {
+						log('Server connection closed');
+						throw new Error('Connection closed');
+					}
+					
+					buffer += decoder.decode(value, { stream: true });
+					const lines = buffer.split('\n\n');
+					buffer = lines.pop() || '';
+
+					for(let line of lines) {
+						if(line.trim().length > 0) {
+							try {
+								const match = line.match(/^data: (.+)$/m);
+								if (match) {
+									const data = JSON.parse(match[1]);
+									if(data["type"] == "text") {
+										log("["+data["timestamp"]+" server time] "+data["data"]);
+									}
+									else if(data["type"] == "progress") {
+										mikan.progress = JSON.parse(data["data"]);
+										if(history.state != null && history.state.page == "progress") {
+											showProgress();
+										}
+									}
+									else {
+										log(data);
+									}
+								}
+							} catch(e) {
+								log(`Error parsing message: ${e.message}`);
+							}
+						}
+					}
+				}
+			} else if (response.status === 401) {
+				log('Authorization failed');
+				mikan.login = false;
+				throw new Error('Authorization failed');
+			} else {
+				throw new Error('Connection failed');
 			}
+
+		} catch(error) {
+			log(`Error in server connection: ${error.message}`);
+			log('Reconnecting in ' + (waitTime/1000) + 's...');
+			
+			retryCount++;
+			waitTime = Math.min(waitTime * 1.5, maxWaitTime);
+			
+			await new Promise(resolve => setTimeout(resolve, waitTime));
+			await connect();
 		}
-	} else if (response.status === 401) {
-		log('Authorization failed');
-		throw new Error('Authorization failed');
-	} else {
-		log('Connection failed');
-		throw new Error('Connection failed');
 	}
 
-}catch(error){
-	log(`Error in server connection: ${error.message}`);
-	log(new Error().stack,true)
-	log('Reconnecting in 3s...');
-}finally{
-	setTimeout(serverEvent, 3000);
+	await connect();
 }
-}
+
 function loadToken() {
 let t=JSON.parse(localStorage.getItem("token"));
 if(t!=null&&t!=undefined&&t!=""){mikan["token"]=t}
@@ -603,7 +631,16 @@ if(checkInput["status"]=="failed"){
 }
 arg=checkInput["data"]["normal"];
 if(arg["value"]!=""){
-	mikan.tableData = (await fetchApiData({type:"knownserieschapter",value:arg["value"]}))["data"];
+	
+	mikan.tableData = (await fetchApiData({type:"knownserieschapter",value:arg["value"]}))["data"].map(e=>{e["action"]=[
+		{
+			name:"Download chapter",
+			func:()=>{
+				log("tableAction act:"+"dlchapter"+" val:"+e["chapterid"],true);
+				fetchApiData({type:"dlchapter",valueObj:{type:"dlchapter",id:e["chapterid"],serie:e["serieid"]}})
+			}
+		},
+	];return e});
 	displayTable({data:mikan.tableData})
 }else{
 	mikan.tableData = (await fetchApiData({type:"knownseries"}))["data"].map(e=>{if("h" in e){e.h=Boolean(e.h).toString();return e}}).map(e=>{e["action"]=[

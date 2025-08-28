@@ -43,90 +43,91 @@ def readConfig():
 def checkDB():
 	refTables = {
 		"chapter": {
-			"series":     {"table":"series","col":"id"},
-			"tgroup":     {"table":"tgroup","col":"id"},
+			"series":	 {"table":"series","col":"id"},
+			"tgroup":	 {"table":"tgroup","col":"id"},
 		},
 	}
 	tables = {
 		"author": {
-			"id":         {"pri":True,  "type":"varchar", "def":""},
-			"name":       {"pri":False, "type":"varchar", "def":""},
+			"id":		 {"pri":True,  "type":"varchar", "def":""},
+			"name":	   {"pri":False, "type":"varchar", "def":""},
 			"favorite":   {"pri":False, "type":"boolean", "def":""},
-			"ignore":     {"pri":False, "type":"boolean", "def":""},
-			"deleted":    {"pri":False, "type":"boolean", "def":""},
+			"ignore":	 {"pri":False, "type":"boolean", "def":""},
+			"deleted":	{"pri":False, "type":"boolean", "def":""},
 		},
 		"chapter": {
-			"series":     {"pri":False, "type":"varchar", "def":""},
-			"id":         {"pri":True,  "type":"varchar", "def":""},
-			"title":      {"pri":False, "type":"varchar", "def":""},
-			"volume":     {"pri":False, "type":"varchar", "def":""},
-			"chapter":    {"pri":False, "type":"varchar", "def":""},
-			"tgroup":     {"pri":False, "type":"varchar", "def":""},
+			"series":	 {"pri":False, "type":"varchar", "def":""},
+			"id":		 {"pri":True,  "type":"varchar", "def":""},
+			"title":	  {"pri":False, "type":"varchar", "def":""},
+			"volume":	 {"pri":False, "type":"varchar", "def":""},
+			"chapter":	{"pri":False, "type":"varchar", "def":""},
+			"tgroup":	 {"pri":False, "type":"varchar", "def":""},
 			"language":   {"pri":False, "type":"varchar", "def":""},
-			"time":       {"pri":False, "type":"varchar", "def":""},
-			"got":        {"pri":False, "type":"boolean", "def":""},
+			"time":	   {"pri":False, "type":"varchar", "def":""},
+			"got":		{"pri":False, "type":"boolean", "def":""},
 		},
 		"fetch": {
-			"id":         {"pri":False, "type":"varchar", "def":""},
-			"type":       {"pri":False, "type":"integer", "def":""},
-			"status":     {"pri":False, "type":"varchar", "def":""},
+			"id":		 {"pri":False, "type":"varchar", "def":""},
+			"type":	   {"pri":False, "type":"integer", "def":""},
+			"status":	 {"pri":False, "type":"varchar", "def":""},
 		},
 		"series": {
-			"id":         {"pri":True,  "type":"varchar", "def":""},
-			"altId":      {"pri":False, "type":"varchar", "def":""},
-			"name":       {"pri":False, "type":"varchar", "def":""},
+			"id":		 {"pri":True,  "type":"varchar", "def":""},
+			"altId":	  {"pri":False, "type":"varchar", "def":""},
+			"name":	   {"pri":False, "type":"varchar", "def":""},
 			"lastUpdate": {"pri":False, "type":"varchar", "def":""},
 			"favorite":   {"pri":False, "type":"boolean", "def":""},
 			"forceName":  {"pri":False, "type":"varchar", "def":""},
-			"author":     {"pri":False, "type":"varchar", "def":""},
-			"artist":     {"pri":False, "type":"varchar", "def":""},
-			"image":      {"pri":False, "type":"blob",    "def":""},
+			"author":	 {"pri":False, "type":"varchar", "def":""},
+			"artist":	 {"pri":False, "type":"varchar", "def":""},
+			"image":	  {"pri":False, "type":"blob",	"def":""},
 			"imageName":  {"pri":False, "type":"varchar", "def":""},
 			"fixedImage": {"pri":False, "type":"boolean", "def":""},
 			"priority":   {"pri":False, "type":"integer", "def":""},
-			"h":          {"pri":False, "type":"boolean", "def":""},
+			"h":		  {"pri":False, "type":"boolean", "def":""},
 			"lastCheck":  {"pri":False, "type":"varchar", "def":""},
 			"nameWarn":   {"pri":False, "type":"boolean", "def":""},
-			"source":     {"pri":False, "type":"varchar", "def":""},
+			"source":	 {"pri":False, "type":"varchar", "def":""},
 		},
 		"settings": {
-			"key":        {"pri":True,  "type":"varchar", "def":""},
-			"name":       {"pri":False, "type":"varchar", "def":""},
-			"value":      {"pri":False, "type":"varchar", "def":""},
-			"user":       {"pri":False, "type":"boolean", "def":""},
+			"key":		{"pri":True,  "type":"varchar", "def":""},
+			"name":	   {"pri":False, "type":"varchar", "def":""},
+			"value":	  {"pri":False, "type":"varchar", "def":""},
+			"user":	   {"pri":False, "type":"boolean", "def":""},
 			"possible":   {"pri":False, "type":"varchar", "def":""},
 		},
 		"tgroup": {
-			"id":         {"pri":True,  "type":"varchar", "def":""},
-			"name":       {"pri":False, "type":"varchar", "def":""},
-			"ignore":     {"pri":False, "type":"boolean", "def":""},
-			"fake":       {"pri":False, "type":"boolean", "def":""},
-			"deleted":    {"pri":False, "type":"boolean", "def":""},
+			"id":		 {"pri":True,  "type":"varchar", "def":""},
+			"name":	   {"pri":False, "type":"varchar", "def":""},
+			"ignore":	 {"pri":False, "type":"boolean", "def":""},
+			"fake":	   {"pri":False, "type":"boolean", "def":""},
+			"deleted":	{"pri":False, "type":"boolean", "def":""},
 		},
 	}
 	settings = {
-		"dbVersion":      {"name":"Database version", "value":"5.3", "user":"0", "possible":""},
-		"saveDir":        {"name":"Save location", "value":"/media/Media/mikan/", "user":"1", "possible":""},
-		"saveHDir":       {"name":"Save location (H)", "value":"", "user":"1", "possible":""},
-		"saveFormat":     {"name":"", "value":"Individual Images", "user":"", "possible":"Individual Images"},
-		"saveName":       {"name":"Save format", "value":"_%{serie}%_/ch_%{chapter:>04}%__%{title: >s}%_ _%{lang_short}%__%[{group}]%_/_%{page:>03}%__%{extension}%_", "user":"1", "possible":""},
-		"hSaveName":      {"name":"Save format (h)", "value":"", "user":"1", "possible":""},
+		"dbVersion":	  {"name":"Database version", "value":"5.3", "user":"0", "possible":""},
+		"saveDir":		{"name":"Save location", "value":"/media/Media/mikan/", "user":"1", "possible":""},
+		"saveHDir":	   {"name":"Save location (H)", "value":"", "user":"1", "possible":""},
+		"saveFormat":	 {"name":"", "value":"Individual Images", "user":"", "possible":"Individual Images"},
+		"saveName":	   {"name":"Save format", "value":"_%{serie}%_/ch_%{chapter:>04}%__%{title: >s}%_ _%{lang_short}%__%[{group}]%_/_%{page:>03}%__%{extension}%_", "user":"1", "possible":""},
+		"hSaveName":	  {"name":"Save format (h)", "value":"", "user":"1", "possible":""},
 		"lastUpdateTime": {"name":"Last manga recheck", "value":"", "user":"0", "possible":""},
-		"showCovers":     {"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
-		"showCoversH":    {"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
-		"retryErrors":    {"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
-		"retryTimes":     {"name":"", "value":"100", "user":"0", "possible":""},
+		"showCovers":	 {"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
+		"showCoversH":	{"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
+		"retryErrors":	{"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
+		"retryTimes":	 {"name":"", "value":"100", "user":"0", "possible":""},
 		"renameFolder":   {"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
-		"languages":      {"name":"Chapter download languages", "value":"en", "user":"1", "possible":""},
+		"languages":	  {"name":"Chapter download languages", "value":"en", "user":"1", "possible":""},
 		"titleLanguages": {"name":"Manga title languages", "value":"en,jp", "user":"1", "possible":""},
-		"coverDir":       {"name":"Cover image location", "value":"_%{serie}%_/cover_%{extension}%_", "user":"1", "possible":""},
-		"coverHDir":      {"name":"Cover image location (H)", "value":"_%{serie}%_/cover_%{extension}%_", "user":"1", "possible":""},
-		"saveCover":      {"name":"Save cover image", "value":"yes", "user":"1", "possible":"yes,no"},
-		"showH":          {"name":"Display H", "value":"yes", "user":"1", "possible":"yes,no"},
-		"appBGType":      {"name":"App backgroud type", "value":"color", "user":"1", "possible":"cover,color"},
-		"appBGCover":     {"name":"App backgroud cover series id", "value":"", "user":"1", "possible":""},
-		"appBGColor":     {"name":"App backgroud color hex", "value":"000000", "user":"1", "possible":""},
-		"webUser":        {"name":"Web cilent user", "value":"[]", "user":"0", "possible":""},
+		"coverDir":	   {"name":"Cover image location", "value":"_%{serie}%_/cover_%{extension}%_", "user":"1", "possible":""},
+		"coverHDir":	  {"name":"Cover image location (H)", "value":"_%{serie}%_/cover_%{extension}%_", "user":"1", "possible":""},
+		"saveCover":	  {"name":"Save cover image", "value":"yes", "user":"1", "possible":"yes,no"},
+		"showH":		  {"name":"Display H", "value":"yes", "user":"1", "possible":"yes,no"},
+		"appBGType":	  {"name":"App backgroud type", "value":"color", "user":"1", "possible":"cover,color"},
+		"appBGCover":	 {"name":"App backgroud cover series id", "value":"", "user":"1", "possible":""},
+		"appBGColor":	 {"name":"App backgroud color hex", "value":"000000", "user":"1", "possible":""},
+		"webUser":		{"name":"Web cilent user", "value":"[]", "user":"0", "possible":""},
+		"ignoreFake":	 {"name":"Ignore chapter from official/fake group", "value":"yes", "user":"1", "possible":"yes,no"},
 	}
 	try:
 		db = sqlite3.connect(config["db_location"])
@@ -298,17 +299,118 @@ def checkArg(arg):
 
 	return suc("[checkArg] sucess",input)
 
-def hash_password(password):
+def hashPassword(password):
 	salt = os.urandom(16)
 	pwdhash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
 	return base64.b64encode(salt + pwdhash).decode('ascii')
 
-def verify_password(stored_password, provided_password):
+def verifyPassword(stored_password, provided_password):
 	stored_password = base64.b64decode(stored_password)
 	salt = stored_password[:16]
 	stored_pwdhash = stored_password[16:]
 	pwdhash = hashlib.pbkdf2_hmac('sha256', provided_password.encode('utf-8'), salt, 100000)
 	return hmac.compare_digest(stored_pwdhash, pwdhash)
+
+import sqlite3
+
+def queryDB(select=["id"], table=["series"], where={}, whereopt="AND"):
+	db = sqlite3.connect(config["db_location"])
+	db.execute('PRAGMA journal_mode=WAL;')
+	cr = db.cursor()
+	q = "SELECT " + ", ".join(select).lower().replace("drop","").replace(";","") + " FROM " + ", ".join(table).lower().replace("drop","").replace(";","")
+	if where:
+		params = []
+		parts = []
+		wo = " " + whereopt.upper().replace("DROP","").replace(";","") + " "
+		for key, value in where.items():
+			if isinstance(value, (list, tuple)):
+				if not value:
+					parts.append("0=1")
+				else:
+					ph = ",".join("?" for _ in value)
+					parts.append(f"{key} IN ({ph})")
+					params.extend(value)
+			else:
+				parts.append(f"{key} = ?")
+				params.append(value)
+		q += " WHERE " + wo.join(parts)
+		cr.execute(q, params)
+	else:
+		cr.execute(q)
+
+	out = [dict(zip([c[0] for c in cr.description] if "*" in select or any(' ' in s for s in select) else select, row)) for row in cr.fetchall()]
+	cr.close()
+	db.close()
+	return out
+
+def updateDB(values={},table=["series"], where={}, whereopt="AND"):
+	db = sqlite3.connect(config["db_location"])
+	db.execute('PRAGMA journal_mode=WAL;')
+	cr = db.cursor()
+	q = "UPDATE " + ", ".join(table).lower().replace("drop","").replace(";","")
+	
+	params = []
+	if values:
+		parts = []
+		for key, value in values.items():
+			if isinstance(value, (str,int,float,bool)):
+				parts.append(f"{key} = ?")
+				params.append(value)
+		q += " SET " + ", ".join(parts)
+	else:
+		raise TypeError("No set value on update")
+	if where:
+		parts = []
+		wo = " " + whereopt.upper().replace("DROP","").replace(";","") + " "
+		for key, value in where.items():
+			if isinstance(value, (list, tuple)):
+				if not value:
+					parts.append("0=1")
+				else:
+					ph = ",".join("?" for _ in value)
+					parts.append(f"{key} IN ({ph})")
+					params.extend(value)
+			else:
+				parts.append(f"{key} = ?")
+				params.append(value)
+		q += " WHERE " + wo.join(parts)
+	else:
+		raise TypeError("No where value on update")
+	print(q)
+	cr.execute(q, params)
+	db.commit()
+	cr.close()
+	db.close()
+	return True
+
+def insereplaceDB(values={}, table="series"):
+    if not values:
+        raise TypeError("No values provided for INSERT OR REPLACE")
+
+    db = sqlite3.connect(config["db_location"])
+    db.execute('PRAGMA journal_mode=WAL;')
+    cr = db.cursor()
+
+    col = list(values.keys())
+    val = ", ".join(["?" for _ in col])
+    q = f"INSERT OR REPLACE INTO {", ".join(table).lower().replace("drop","").replace(";","")} ({', '.join(col)}) VALUES ({val})"
+
+    params = [values[col] for col in col]
+    cr.execute(q, params)
+
+    db.commit()
+    cr.close()
+    db.close()
+    return True
+
+def serviceRun(function=lambda:None, interval=60, arg=()):
+	import threading
+	def wrapper():
+		args = arg if isinstance(arg, tuple) else (arg,)
+		function(*args)
+		threading.Timer(interval, wrapper).start()
+	threading.Timer(interval, wrapper).start()
+
 
 class WatchedProgress:
 	def __init__(self, initial_data=None):
@@ -380,7 +482,8 @@ url = {
 	"mangadex": {
 		"url": "https://www.mangadex.org",
 		"api": "https://api.mangadex.org",
-		"image": "https://uploads.mangadex.org"
+		"image": "https://uploads.mangadex.org",
+		"report": "https://api.mangadex.network/report"
 	},
 	"comick": {
 		"url": "https://comick.io",
@@ -388,8 +491,9 @@ url = {
 		"image": "https://meo.comick.pictures"
 	}
 }
+provider = url.keys()
 headers = {
-	'User-Agent': f'mikan/1.0.0; {sys.platform})'
+	'User-Agent': f'mikan/1.1.0; {sys.platform})'
 }
 headersPost = headers.copy()
 headersPost.update({

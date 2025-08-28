@@ -1,34 +1,70 @@
-# How to use
-## 1. Setup config.ini file
-### Run `python mdcli.py setup` to config and add/reset user
-### *need ssl certificate to function*
-#### `db_location` is a manga db location
-#### `ssl_crt_location` is a ssl cert file location
-#### `ssl_key_location` is a ssl key file location
-#### `port` is a server port
-#### `host` is a server host
-#### `secret` is a secret for login hash
-#### `token_valid_time` is a login token valid use time
-#### `strictlogin` is for more strict token usage request
-## 2. Start server by run `runauto.sh`
-#### or `run.sh` or `python mdweb.py` or `python3 mdweb.py`
-## 3. Go to https://`host`:`port`/web
-And login with previous setup user
-## 4. Go to Settings tab and config location
-### usable format for `Save format` and `Cover image location`
-##### `_%{serie}%_` will replace with manga title
-##### `_%{authors}%_` will replace with authors
-##### `_%{artists}%_` will replace with artists
-### usable format for `Save format`
-##### `_%{group}%_` will replace with chapter translation group
-##### `_%{volume}%_` will replace with chapter volume number
-##### `_%{chapter}%_` will replace with chapter number
-##### `_%{title}%_` will replace with chapter title
-##### `_%{page}%_` will replace with chapter image page
-##### `_%{extension}%_` will replace with chapter image extension
-##### `_%{lang_short}%_` will replace with short chapter language (eg. en, jp)
-### additional format
-##### `_%x{value}x%_` will add `x` if have value eg. `_%group [{group}]%_` will be `group ["translate_group"]` if have translate group name in chapter or ` `(nothing) if it not have
-#### `_%{value:>0x}%_` will add 0 if value length less than x eg. `_%{page:>03}%_` will be `023` or `004.5` if it has decimal
-## 5. Go to Search tab to start adding first manga
-#### `right click for more action`
+# Mikan
+A web GUI manga downloader
+<details>
+    <summary>Supported Sources</summary>
+
+* ### Mangadex
+* ### Comick
+</details>
+
+## How to Use
+
+### 1. Setup config.ini file
+Run `python mdcli.py setup` to configure and add/reset users.  
+**Note:** SSL certificate is required for functionality.
+
+<details>
+    <summary>Using config file from different location</summary>
+
+Provide file path via `MIKAN_CONFIG_FILE` environment variable
+</details>
+
+### Configuration Options
+- `db_location` - Manga database location
+- `ssl_crt_location` - SSL certificate file location  
+- `ssl_key_location` - SSL key file location
+- `port` - Server port
+- `host` - Server host address
+- `secret` - Secret key for login hash
+- `token_valid_time` - Login token validity duration
+- `strictlogin` - Enable stricter token validation
+
+### 2. Start Server
+Choose one of these methods:
+- Run `runauto.sh`
+- Run `run.sh` 
+- Run `python mdweb.py`
+
+### 3. Access Web Interface
+1. Open `https://<host>:<port>/web` in your browser
+2. Login with your configured user credentials
+
+### 4. Configure Save Settings
+Click on "Settings" tab to configure save locations.
+
+
+#### Format Variables
+##### Available in both `Save format` and `Cover image location`:
+- `_%{serie}%_` - Manga title
+- `_%{authors}%_` - Author names
+- `_%{artists}%_` - Artist names
+
+##### Available only in `Save format`:
+- `_%{group}%_` - Translation group name
+- `_%{volume}%_` - Chapter volume number
+- `_%{chapter}%_` - Chapter number
+- `_%{title}%_` - Chapter title
+- `_%{page}%_` - Image page number
+- `_%{extension}%_` - Image file extension
+- `_%{lang_short}%_` - Language code (e.g. en, jp)
+
+#### Format Modifiers
+- `_%x{value}x%_` - Adds `x` if value exists
+  - Example: `_%group [{group}]%_` (`_%{group}%_`) becomes `group ["translate_group"]` or empty string
+- `_%{value:>0x}%_` - Zero-pads value to x digits
+  - Example: `_%{page:>03}%_` (`_%{page}%_`) becomes `023` or `004.5`
+
+### 5. Add Manga
+1. Go to Search tab
+2. Search and add your first manga
+3. *Right-click table entries for additional options*

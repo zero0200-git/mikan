@@ -32,7 +32,7 @@ if __name__ == "__main__":
 		import sqlite3
 		from getpass import getpass
 		from json import loads,dumps
-		from mdbase import readConfig,configFile,settings,hash_password
+		from mdbase import readConfig,configFile,settings,hashPassword
 
 		print("\n")
 		config = configparser.ConfigParser(interpolation=None)
@@ -54,7 +54,7 @@ if __name__ == "__main__":
 				break
 			else:
 				username = input("Please input Username: ")
-		password = hash_password(getpass("Please input Password: "))
+		password = hashPassword(getpass("Please input Password: "))
 		
 		userAll[username] = password
 		db = sqlite3.connect(readConfig()["db_location"])

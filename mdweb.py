@@ -1,4 +1,5 @@
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+import signal
 from socketserver import ThreadingMixIn
 import ssl
 import base64
@@ -7,10 +8,11 @@ import hashlib
 import hmac
 import os
 import json
-import datetime
+import threading
 import time
+from datetime import datetime
 from urllib.parse import parse_qsl, urlparse, parse_qs, urlsplit
-from mdbase import clients,scriptLocation,config,userList,progress,configFile,logged,checkDB,hash_password,verify_password
+from mdbase import clients,scriptLocation,config,userList,progress,configFile,logged,checkDB,verifyPassword
 from mdmain import MDMain
 
 svAddress = config["host"]
@@ -32,8 +34,8 @@ def generate_token(username, client_ip, user_agent):
 	payload = {
 		"username": username,
 		"exp": int(time.time()) + int(TOKEN_VALID_TIME),
-        "ip": client_ip,
-        "ua": user_agent
+		"ip": client_ip,
+		"ua": user_agent
 	}
 
 	header_b64 = base64url_encode(json.dumps(header).encode('utf-8'))
@@ -59,31 +61,32 @@ def verify_token(token, client_ip=None, user_agent=None):
 		if config.get("strictlogin", 'false') == 'true':
 			if payload.get("ip") != client_ip or payload.get("ua") != user_agent:
 				return False
-        
+		
 		return payload["username"]
 	except Exception as e:
 		logged(f"Token verification error: {e}")
 		return False
 
-def send_message(data,type="text",timestamp=datetime.datetime.fromisoformat(datetime.datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')):
-	out = {"timestamp": timestamp}
-	if type == "json":
-		out["type"] = "json"
-		out["data"] = json.dumps(out["data"])
-	elif type == "progress":
-		out["type"] = "progress"
-		out["data"] = json.dumps(data)
-	else:
-		out["type"] = "text"
-		out["data"] = data
-	for client in clients[:]:
-		try:
-			message = f"{json.dumps(out)}\n\n"
-			client.write(message.encode('utf-8'))
-			client.flush()
-		except (BrokenPipeError, ConnectionResetError):
-			if client in clients:
-				clients.remove(client)
+def send_message(data, type="text", timestamp=datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')):
+    out = {"timestamp": timestamp}
+    if type == "json":
+        out["type"] = "json"
+        out["data"] = json.dumps(out["data"])
+    elif type == "progress":
+        out["type"] = "progress"
+        out["data"] = json.dumps(data)
+    else:
+        out["type"] = "text"
+        out["data"] = data
+    
+    for client in clients[:]:
+        try:
+            message = f"data: {json.dumps(out)}\n\n"
+            client.write(message.encode('utf-8'))
+            client.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            if client in clients:
+                clients.remove(client)
 class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 	def __init__(self, *args, **kwargs):
 		self.web_dir = os.path.join(scriptLocation, 'web')
@@ -126,7 +129,6 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 		if self.path.startswith('/web/') and os.path.isfile(os.path.join(scriptLocation,"web",urlsplit(self.path).path[4:].replace("/../","/").lstrip("/") if urlsplit(self.path).path[4:].replace("/../","/").lstrip("/") != "" else "index.html")):
 			self.path = self.path[4:]
 			fpath = os.path.join(scriptLocation,"web",urlsplit(self.path).path.replace("/../","/").lstrip("/") if urlsplit(self.path).path.replace("/../","/").lstrip("/") != "" else "index.html")
-			print(self.path)
 			self.send_response(200)
 			self.send_header('Cache-Control', 'max-age=0, no-cache, no-store, must-revalidate')
 			self.send_header('Pragma', 'no-store')
@@ -175,20 +177,24 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 		if self.path == '/api/log':
 			self.send_response(200)
 			self.send_header('Content-type', 'text/event-stream')
-			self.send_header('Cache-Control', 'no-cache')
+			self.send_header('Cache-Control', 'no-cache, no-transform')
 			self.send_header('Connection', 'keep-alive')
+			self.send_header('X-Accel-Buffering', 'no')
 			self.send_header('Access-Control-Allow-Origin', '*')
 			self.end_headers()
+			self.wfile.flush()
+			
 			clients.append(self.wfile)
 			try:
 				send_message("New Client connected to log")
 				progress.send(progress.to_dict())
 				while True:
-					time.sleep(1)
+					self.wfile.write(b': keepalive\n\n')
+					self.wfile.flush()
+					time.sleep(30)
 			except (BrokenPipeError, ConnectionResetError):
-				self.wfile.close()
-			finally:
-				clients.remove(self.wfile)
+				if self.wfile in clients:
+					clients.remove(self.wfile)
 			return
 
 		if self.path.startswith('/api'):
@@ -216,8 +222,8 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 			stored_password = userList.get(username)
 			client_ip = self.client_address[0]
 			user_agent = self.headers.get('User-Agent', '')
-            
-			if stored_password and verify_password(stored_password, password):
+			
+			if stored_password and verifyPassword(stored_password, password):
 				token = generate_token(username, client_ip, user_agent)
 				response_data = {"token": token}
 				self.send_response(200)
@@ -251,11 +257,9 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 		queryParams = parse_qs(urlparse(self.path).query)
 		queryType = queryParams["type"] if "type" in queryParams else "na"
 		queryText = " ".join(queryParams["value"]) if "value" in queryParams else ""
-		print(queryParams)
 		queryStr = {}
 		for q in queryParams:
 			queryStr[q] = ",".join(queryParams[q])
-		print(queryStr)
 		responseData = {
 			"message": "api connect success.",
 			"query_params": queryParams
@@ -295,6 +299,8 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 			responseData["data"] = mdmain.setForceName(queryText)
 		elif "updatecover" in queryType:
 			responseData["data"] = mdmain.updateCover(queryStr)
+		elif "dlchapter" in queryType:
+			responseData["data"] = mdmain.downloadChapter(queryStr)
 		elif "markh" in queryType:
 			responseData["data"] = mdmain.markSerieH(queryText)
 		elif "getcover" in queryType:
@@ -304,20 +310,42 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 		elif "progress" in queryType:
 			responseData["data"] = progress.to_dict()
 
+		global lastStatus
+		if "restart" in queryType:
+			lastStatus = "restart"
+			threading.Thread(target=self.server.shutdown, daemon=True).start()
+			responseData["data"] = {"status":"restarting"}
+		elif "stop" in queryType:
+			lastStatus = "stop"
+			threading.Thread(target=self.server.shutdown, daemon=True).start()
+			responseData["data"] = {"status":"stopping"}
+
 		return responseData
 
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
-	pass
+	daemon_threads = True
+	def restartServer(self):
+		logged("Restart requested... shutting down.")
+		
+		def doRestart():
+			self.shutdown()
+			self.server_close()
+			logged("Shutdown complete. Restarting now...")
+			python = sys.executable
+			os.execv(python, [python] + sys.argv)
+
+		threading.Thread(target=doRestart, daemon=True).start()
 
 def start_server():
 	try:
+		global lastStatus
 		logged("Using config from: ", configFile)
 		logged("database path: ", config["db_location"])
 		logged("server address: ", svAddress)
 		logged("server port: ", svPort)
-		server_address = (svAddress, int(svPort))
-		httpd = ThreadingHTTPServer(server_address, SecureHTTPRequestHandler)
+		serverAddress = (svAddress, int(svPort))
+		httpd = ThreadingHTTPServer(serverAddress, SecureHTTPRequestHandler)
 		
 		context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 		logged("certificate path: ", svCert)
@@ -334,7 +362,32 @@ def start_server():
 		mdmain.web = True
 		logged("Server loaded!!!")
 		logged(f"Serving on https://{svAddress}:{svPort}")
-		httpd.serve_forever()
+
+		def stopServer():
+			logged("Stopping server...")
+			httpd.shutdown()
+			httpd.server_close()
+			os._exit(0)
+
+		def handleSignal(signum, frame):
+			logged(f"Signal {signum} received. Shutting down...")
+			threading.Thread(target=stopServer, daemon=True).start()
+
+		signal.signal(signal.SIGINT, handleSignal)
+		signal.signal(signal.SIGTERM, handleSignal)
+
+		try:
+			httpd.serve_forever()
+		finally:
+			httpd.server_close()
+			if lastStatus == "restart":
+				logged("Restarting server...")
+				python = sys.executable
+				os.execv(python, [python] + sys.argv)
+			elif lastStatus == "stop":
+				logged("Stopping server...")
+				os._exit(0)
+
 	except OSError as e:
 		if e.errno == 98:
 			logged(f"Error: Port {svPort} is already in use. Please try a different port or kill the process using this port.")
