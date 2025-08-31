@@ -118,6 +118,7 @@ header div {
 }
 #container > .right {
 	min-width: 0;
+	flex-grow: 1;
 }
 #container > .left {
 	min-width: calc(10% + 12rem);
