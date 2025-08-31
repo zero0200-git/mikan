@@ -526,11 +526,6 @@ class MDMain:
 			"input":args,
 			"context":[
 				{
-					"var":"provider",
-					"type":str,
-					"req":True
-				},
-				{
 					"var":"id",
 					"type":str,
 					"req":True
@@ -543,7 +538,7 @@ class MDMain:
 		id = args["id"]
 
 		mangadb = queryDB(select=["id","title","chapter","volume","tgroup","language","time","got"],table=["chapter"],where={"series":id})
-		seriedb = queryDB(select=["source","h"],table="series",where={"id":id})
+		seriedb = queryDB(select=["source","h"],table=["series"],where={"id":id})
 		serie = {}
 		if len(seriedb) > 0:
 			if seriedb[0]["source"] != "" and seriedb[0]["source"] in provider:
@@ -584,11 +579,11 @@ class MDMain:
 							}
 							urllib.request.Request("https://api.mangadex.network/report", data=urllib.parse.urlencode(report).encode(), headers=headersPost)
 							if r["status"] != 200:
-								self.logged(f"Download {serie["serie"]} - chapter {m['chapter']} failed. (page:{j} url:{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{p})")
+								self.logged(f"Download {m["serie"]} - chapter {m['chapter']} failed. (page:{j} url:{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{p})")
 								break
 						else:
 							updateDB(table=["chapter"], values={"got":1}, where={"id":m["id"]})
-							self.logged(f"Download {serie["serie"]} - chapter {m['chapter']} success.")
+							self.logged(f"Download {m["serie"]} - chapter {m['chapter']} success.")
 
 					elif serie["provider"] == "comick":
 						r = self.request(f"{url["comick"]["api"]}/chapter/{m["id"]}/get_images")
@@ -610,15 +605,15 @@ class MDMain:
 							m["time"] = datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')
 							r = self.downloadPage(f"{url["comick"]["image"]}/{p["b2key"]}", self.custom_format(location+format, **m))
 							if r["status"] != 200:
-								self.logged(f"Download {serie["serie"]} - chapter {m['chapter']} failed. (page:{j} url:{url["comick"]["image"]}/{p["b2key"]})")
+								self.logged(f"Download {m["serie"]} - chapter {m['chapter']} failed. (page:{j} url:{url["comick"]["image"]}/{p["b2key"]})")
 								break
 						else:
 							updateDB(table=["chapter"], values={"got":1}, where={"id":m["id"]})
-							self.logged(f"Download {serie["serie"]} - chapter {m['chapter']} success.")
+							self.logged(f"Download {m["serie"]} - chapter {m['chapter']} success.")
 
 				progress.update(id, {"status": f"download {i}/{len(mangadb)}", "progress": str(round((i/len(mangadb))*100,2)), "subprogress": "0"})
-			self.logged(f"Download {serie["serie"]} success.")
-			progress.update(id, {"status": "download all", "progress": "100", "subprogress": "0"})
+			self.logged(f"Download {serie["serie"]["name"]} success.")
+			progress.update(id, {"status": "download all", "progress": "100", "subprogress": "100"})
 			return mangadb
 
 	def downloadPage(self,url,location):

@@ -117,12 +117,14 @@ header div {
 	margin: 0;
 }
 #container > .right {
-	width: 100%;
+	min-width: 0;
 }
 #container > .left {
+	min-width: calc(10% + 12rem);
 	width: calc(10% + 12rem);
 }
 #container > .left.hide {
+	min-width: 0;
 	width: 0;
 }
 #container > .left.hide * {
@@ -362,6 +364,8 @@ svg {
 #progress .progressCon{
 	height: 2rem;
 	margin-bottom: var(--padding);
+	scroll-snap-align: center;
+	scroll-snap-stop: always;
 	scroll-snap-align: center;
 }
 #progress .progressCon:last-child{

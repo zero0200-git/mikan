@@ -94,7 +94,7 @@ response = await fetch(mikan["server"]+`/api?type=${arg["type"]}&value=${encodeU
 }
 
 if (response.status===200) {
-	mikan.login=false;
+	mikan.login=true;
 	let data;
 	try {
 		data=(await response.json())
@@ -463,6 +463,7 @@ for (let i = 0; i < cols.length; i++) {
 	const head = document.createElement("div");
 	head.innerHTML = cols[i];
 	head.dataset.head = cols[i];
+	head.dataset.filter = "";
 	head.title = cols[i]+" (click to filter)";
 	head.classList.add("header");
 	head.tabIndex=0;
@@ -472,7 +473,7 @@ for (let i = 0; i < cols.length; i++) {
 	}else if(head.dataset["select"]=="true"){
 		e.preventDefault();
 		head.dataset["select"]="false";
-		let filter = await formWindow({title:"Filter: "+cols[i],form:[{id:"filter",type:"text"}]});
+		let filter = await formWindow({title:"Filter: "+cols[i],form:[{id:"filter",type:"text",value:head.dataset["filter"]}]});
 		if(filter["status"]=="success"){
 			let el = document.querySelectorAll("#content > .data > *:nth-child("+cols.length+"n+"+(i+1)+"):not(.scrollbar)")
 			let text = filter["data"]["filter"]
@@ -888,11 +889,10 @@ if(progressNo.length > 0){
 		p.classList.add("progress");
 		pCon.dataset.id = pi
 		p.style.width = progressAll[pn]["subprogress"];
-		p.innerHTML = progressAll[pn]["name"] + " [" + progressAll[pn]["status"] + "] " + progressAll[pn]["subprogress"] + "%";
+		p.innerHTML = progressAll[pn]["subprogress"] + "% " + progressAll[pn]["status"] + " | " + progressAll[pn]["name"];
 		pCon.append(p);
 		prg.append(pCon);
 	}
-	console.log(a=prg);
 	bottomPrg.innerHTML = prg.innerHTML;
 	bottomPrg.classList.remove("empty");
 } else{
@@ -1112,8 +1112,8 @@ return suc("[checkArg] sucess",input)
 
 
 mikan={};
-mikan.sort={name:"asc"};
-mikan.sortLast=["name"];
+mikan.sort={chapter:"asc",name:"asc"};
+mikan.sortLast=["chapter","name"];
 mikan.progress={};
 mikan.login=false;
 mikan.debug=false;
@@ -1129,7 +1129,7 @@ let checklogin1st = async() => {
 			let r = await fetch(mikan["server"]+'/api?type=ping', {
 			headers: {'Authorization': `Bearer ${JSON.parse(localStorage.getItem("token"))}`}
 			});
-			if(r.status == 200){mikan.login = true; load1st();document.querySelector(".loginlogout").classList.add("login")}
+			if(r.status == 200){mikan.login = true; load1st(); document.querySelector(".loginlogout").classList.add("login")}
 			else{log("Login token not valid, Please try login again."); document.querySelector("#login").click()}
 		}
 	}catch{

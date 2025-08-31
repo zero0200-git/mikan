@@ -307,12 +307,12 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 		elif "addserie" in queryType:
 			responseData["data"] = mdmain.addSerie(queryStr)
 		elif "dllast" in queryType:
-			responseData["data"] = mdmain.downloadToLestest(queryStr["id"])
+			responseData["data"] = mdmain.downloadToLestest(queryStr)
 		elif "updatechapter" in queryType:
 			responseData["data"] = mdmain.getChapterInfoToLestest(queryStr)
 		elif "updateanddllast" in queryType:
 			mdmain.getChapterInfoToLestest(queryStr)
-			responseData["data"] = mdmain.downloadToLestest(queryStr["id"])
+			responseData["data"] = mdmain.downloadToLestest(queryStr)
 		elif "updateforcename" in queryType:
 			responseData["data"] = mdmain.setForceName(queryText)
 		elif "updatecover" in queryType:
