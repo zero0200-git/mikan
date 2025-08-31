@@ -43,91 +43,91 @@ def readConfig():
 def checkDB():
 	refTables = {
 		"chapter": {
-			"series":	 {"table":"series","col":"id"},
-			"tgroup":	 {"table":"tgroup","col":"id"},
+			"series":     {"table":"series","col":"id"},
+			"tgroup":     {"table":"tgroup","col":"id"},
 		},
 	}
 	tables = {
 		"author": {
-			"id":		 {"pri":True,  "type":"varchar", "def":""},
-			"name":	   {"pri":False, "type":"varchar", "def":""},
+			"id":         {"pri":True,  "type":"varchar", "def":""},
+			"name":       {"pri":False, "type":"varchar", "def":""},
 			"favorite":   {"pri":False, "type":"boolean", "def":""},
-			"ignore":	 {"pri":False, "type":"boolean", "def":""},
-			"deleted":	{"pri":False, "type":"boolean", "def":""},
+			"ignore":     {"pri":False, "type":"boolean", "def":""},
+			"deleted":    {"pri":False, "type":"boolean", "def":""},
 		},
 		"chapter": {
-			"series":	 {"pri":False, "type":"varchar", "def":""},
-			"id":		 {"pri":True,  "type":"varchar", "def":""},
-			"title":	  {"pri":False, "type":"varchar", "def":""},
-			"volume":	 {"pri":False, "type":"varchar", "def":""},
-			"chapter":	{"pri":False, "type":"varchar", "def":""},
-			"tgroup":	 {"pri":False, "type":"varchar", "def":""},
+			"series":     {"pri":False, "type":"varchar", "def":""},
+			"id":         {"pri":True,  "type":"varchar", "def":""},
+			"title":      {"pri":False, "type":"varchar", "def":""},
+			"volume":     {"pri":False, "type":"varchar", "def":""},
+			"chapter":    {"pri":False, "type":"varchar", "def":""},
+			"tgroup":     {"pri":False, "type":"varchar", "def":""},
 			"language":   {"pri":False, "type":"varchar", "def":""},
-			"time":	   {"pri":False, "type":"varchar", "def":""},
-			"got":		{"pri":False, "type":"boolean", "def":""},
+			"time":       {"pri":False, "type":"varchar", "def":""},
+			"got":        {"pri":False, "type":"boolean", "def":""},
 		},
 		"fetch": {
-			"id":		 {"pri":False, "type":"varchar", "def":""},
-			"type":	   {"pri":False, "type":"integer", "def":""},
-			"status":	 {"pri":False, "type":"varchar", "def":""},
+			"id":         {"pri":False, "type":"varchar", "def":""},
+			"type":       {"pri":False, "type":"integer", "def":""},
+			"status":     {"pri":False, "type":"varchar", "def":""},
 		},
 		"series": {
-			"id":		 {"pri":True,  "type":"varchar", "def":""},
-			"altId":	  {"pri":False, "type":"varchar", "def":""},
-			"name":	   {"pri":False, "type":"varchar", "def":""},
+			"id":         {"pri":True,  "type":"varchar", "def":""},
+			"altId":      {"pri":False, "type":"varchar", "def":""},
+			"name":       {"pri":False, "type":"varchar", "def":""},
 			"lastUpdate": {"pri":False, "type":"varchar", "def":""},
 			"favorite":   {"pri":False, "type":"boolean", "def":""},
 			"forceName":  {"pri":False, "type":"varchar", "def":""},
-			"author":	 {"pri":False, "type":"varchar", "def":""},
-			"artist":	 {"pri":False, "type":"varchar", "def":""},
-			"image":	  {"pri":False, "type":"blob",	"def":""},
+			"author":     {"pri":False, "type":"varchar", "def":""},
+			"artist":     {"pri":False, "type":"varchar", "def":""},
+			"image":      {"pri":False, "type":"blob",    "def":""},
 			"imageName":  {"pri":False, "type":"varchar", "def":""},
 			"fixedImage": {"pri":False, "type":"boolean", "def":""},
 			"priority":   {"pri":False, "type":"integer", "def":""},
-			"h":		  {"pri":False, "type":"boolean", "def":""},
+			"h":          {"pri":False, "type":"boolean", "def":""},
 			"lastCheck":  {"pri":False, "type":"varchar", "def":""},
 			"nameWarn":   {"pri":False, "type":"boolean", "def":""},
-			"source":	 {"pri":False, "type":"varchar", "def":""},
+			"source":     {"pri":False, "type":"varchar", "def":""},
 		},
 		"settings": {
-			"key":		{"pri":True,  "type":"varchar", "def":""},
-			"name":	   {"pri":False, "type":"varchar", "def":""},
-			"value":	  {"pri":False, "type":"varchar", "def":""},
-			"user":	   {"pri":False, "type":"boolean", "def":""},
+			"key":        {"pri":True,  "type":"varchar", "def":""},
+			"name":       {"pri":False, "type":"varchar", "def":""},
+			"value":      {"pri":False, "type":"varchar", "def":""},
+			"user":       {"pri":False, "type":"boolean", "def":""},
 			"possible":   {"pri":False, "type":"varchar", "def":""},
 		},
 		"tgroup": {
-			"id":		 {"pri":True,  "type":"varchar", "def":""},
-			"name":	   {"pri":False, "type":"varchar", "def":""},
-			"ignore":	 {"pri":False, "type":"boolean", "def":""},
-			"fake":	   {"pri":False, "type":"boolean", "def":""},
-			"deleted":	{"pri":False, "type":"boolean", "def":""},
+			"id":         {"pri":True,  "type":"varchar", "def":""},
+			"name":       {"pri":False, "type":"varchar", "def":""},
+			"ignore":     {"pri":False, "type":"boolean", "def":""},
+			"fake":       {"pri":False, "type":"boolean", "def":""},
+			"deleted":    {"pri":False, "type":"boolean", "def":""},
 		},
 	}
 	settings = {
-		"dbVersion":	  {"name":"Database version", "value":"5.3", "user":"0", "possible":""},
-		"saveDir":		{"name":"Save location", "value":"/media/Media/mikan/", "user":"1", "possible":""},
-		"saveHDir":	   {"name":"Save location (H)", "value":"", "user":"1", "possible":""},
-		"saveFormat":	 {"name":"", "value":"Individual Images", "user":"", "possible":"Individual Images"},
-		"saveName":	   {"name":"Save format", "value":"_%{serie}%_/ch_%{chapter:>04}%__%{title: >s}%_ _%{lang_short}%__%[{group}]%_/_%{page:>03}%__%{extension}%_", "user":"1", "possible":""},
-		"hSaveName":	  {"name":"Save format (h)", "value":"", "user":"1", "possible":""},
+		"dbVersion":      {"name":"Database version", "value":"5.3", "user":"0", "possible":""},
+		"saveDir":        {"name":"Save location", "value":"/media/Media/mikan/", "user":"1", "possible":""},
+		"saveHDir":       {"name":"Save location (H)", "value":"", "user":"1", "possible":""},
+		"saveFormat":     {"name":"", "value":"Individual Images", "user":"", "possible":"Individual Images"},
+		"saveName":       {"name":"Save format", "value":"_%{serie}%_/ch_%{chapter:>04}%__%{title: >s}%_ _%{lang_short}%__%[{group}]%_/_%{page:>03}%__%{extension}%_", "user":"1", "possible":""},
+		"hSaveName":      {"name":"Save format (h)", "value":"", "user":"1", "possible":""},
 		"lastUpdateTime": {"name":"Last manga recheck", "value":"", "user":"0", "possible":""},
-		"showCovers":	 {"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
-		"showCoversH":	{"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
-		"retryErrors":	{"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
-		"retryTimes":	 {"name":"", "value":"100", "user":"0", "possible":""},
+		"showCovers":     {"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
+		"showCoversH":    {"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
+		"retryErrors":    {"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
+		"retryTimes":     {"name":"", "value":"100", "user":"0", "possible":""},
 		"renameFolder":   {"name":"", "value":"yes", "user":"0", "possible":"yes,no"},
-		"languages":	  {"name":"Chapter download languages", "value":"en", "user":"1", "possible":""},
+		"languages":      {"name":"Chapter download languages", "value":"en", "user":"1", "possible":""},
 		"titleLanguages": {"name":"Manga title languages", "value":"en,jp", "user":"1", "possible":""},
-		"coverDir":	   {"name":"Cover image location", "value":"_%{serie}%_/cover_%{extension}%_", "user":"1", "possible":""},
-		"coverHDir":	  {"name":"Cover image location (H)", "value":"_%{serie}%_/cover_%{extension}%_", "user":"1", "possible":""},
-		"saveCover":	  {"name":"Save cover image", "value":"yes", "user":"1", "possible":"yes,no"},
-		"showH":		  {"name":"Display H", "value":"yes", "user":"1", "possible":"yes,no"},
-		"appBGType":	  {"name":"App backgroud type", "value":"color", "user":"1", "possible":"cover,color"},
-		"appBGCover":	 {"name":"App backgroud cover series id", "value":"", "user":"1", "possible":""},
-		"appBGColor":	 {"name":"App backgroud color hex", "value":"000000", "user":"1", "possible":""},
-		"webUser":		{"name":"Web cilent user", "value":"[]", "user":"0", "possible":""},
-		"ignoreFake":	 {"name":"Ignore chapter from official/fake group", "value":"yes", "user":"1", "possible":"yes,no"},
+		"coverDir":       {"name":"Cover image location", "value":"_%{serie}%_/cover_%{extension}%_", "user":"1", "possible":""},
+		"coverHDir":      {"name":"Cover image location (H)", "value":"_%{serie}%_/cover_%{extension}%_", "user":"1", "possible":""},
+		"saveCover":      {"name":"Save cover image", "value":"yes", "user":"1", "possible":"yes,no"},
+		"showH":          {"name":"Display H", "value":"yes", "user":"1", "possible":"yes,no"},
+		"appBGType":      {"name":"App backgroud type", "value":"color", "user":"1", "possible":"cover,color"},
+		"appBGCover":     {"name":"App backgroud cover series id", "value":"", "user":"1", "possible":""},
+		"appBGColor":     {"name":"App backgroud color hex", "value":"000000", "user":"1", "possible":""},
+		"webUser":        {"name":"Web cilent user", "value":"[]", "user":"0", "possible":""},
+		"ignoreFake":     {"name":"Ignore chapter from official/fake group", "value":"yes", "user":"1", "possible":"yes,no"},
 	}
 	try:
 		db = sqlite3.connect(config["db_location"])
@@ -413,8 +413,10 @@ def serviceRun(function=lambda:None, interval=60, arg=()):
 
 
 class WatchedProgress:
-	def __init__(self, initial_data=None):
-		self._data = initial_data if initial_data is not None else {}
+	def __init__(self):
+		self._data = {}
+		self._data["update"] = {}
+		self._data["updateNo"] = []
 
 	def __setitem__(self, key, value):
 		self._data[key] = value
@@ -441,25 +443,22 @@ class WatchedProgress:
 		pass
 
 	def update(self, id, data={"status":"","progress":"0","subprogress":"0"}):
-		db = sqlite3.connect(config["db_location"])
-		db.execute('PRAGMA journal_mode=WAL;')
-		cursor = db.cursor()
-		cursor.execute("SELECT name,forceName FROM series WHERE id = ?", (id,))
-		name = cursor.fetchone()
-		cursor.close()
-		db.close()
+		name = queryDB(select=["name","forceName"],table=["series"],where={"id":id})
 		out = {}
-		if name is None:
+		if len(name) < 1:
 			out["name"] = id
 		else:
-			if name[1] is not None:
-				out["name"] = name[1]
-			else:
-				out["name"] = name[0]
+			out["name"] = name[0]["forceName"] if name[0]["forceName"] is not None and name[0]["forceName"] != "" else name[0]["name"]
 		out["status"] = data["status"] if "status" in data and data["status"] is not None else "Unknown"
 		out["progress"] = data["progress"] if "progress" in data and data["progress"] is not None else "0"
 		out["subprogress"] = data["subprogress"] if "subprogress" in data and data["subprogress"] is not None else "0"
-		self._data[id] = out
+		rmm = 10
+		rmc = 0
+		print(self._data["updateNo"])
+		print(self._data["updateNo"].count(id))
+		while self._data["updateNo"].count(id) >= 1 and rmc < rmm: (self._data["updateNo"].remove(id) if id in self._data["updateNo"] else None); rmc += 1
+		self._data["updateNo"].insert(0,id)
+		self._data["update"][id] = out
 		self.send(self._data)
 
 	def to_dict(self):
@@ -493,7 +492,7 @@ url = {
 }
 provider = url.keys()
 headers = {
-	'User-Agent': f'mikan/1.1.0; {sys.platform})'
+	'User-Agent': f'mikan/1.1.0; ({sys.platform})'
 }
 headersPost = headers.copy()
 headersPost.update({

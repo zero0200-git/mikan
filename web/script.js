@@ -38,12 +38,17 @@ if (response.status === 200) {
 	mikan["token"] = data.token;
 	localStorage.setItem("token",JSON.stringify(mikan["token"]));
 	mikan.login=true;
+	document.querySelector(".loginlogout").classList.add("login")
 	log('Login successful');
 	checkPage();
 } else {
 	mikan.login=false;
 	log('Login failed');
 }
+}
+async function logout(){
+	localStorage.removeItem("token");
+	window.location.reload();
 }
 async function fetchApiData(arg) {
 let checkInput = checkArg({
@@ -107,87 +112,85 @@ if (response.status===200) {
 }
 }
 async function serverEvent() {
-	let retryCount = 0;
-	let waitTime = 1000;
-	const maxWaitTime = 30000;
+let retryCount = 0;
+let waitTime = 1000;
+const maxWaitTime = 30000;
 
-	async function connect() {
-		try {
-			const response = await fetch(mikan["server"]+`/api/log`, {
-				headers: {
-					'Authorization': `Bearer ${mikan["token"]}`,
-					"Accept": "text/event-stream",
-					"Cache-Control": "no-cache",
-					"Connection": "keep-alive"
-				}
-			});
+async function connect() {
+try {
+	const response = await fetch(mikan["server"]+`/api/log`, {
+		headers: {
+			'Authorization': `Bearer ${mikan["token"]}`,
+			"Accept": "text/event-stream",
+			"Cache-Control": "no-cache",
+			"Connection": "keep-alive"
+		}
+	});
 
-			if (response.status === 200) {
-				log('Connected to server log');
-				retryCount = 0;
-				waitTime = 1000;
+	if (response.status === 200) {
+		log('Connected to server log');
+		retryCount = 0;
+		waitTime = 1000;
 
-				const reader = response.body.getReader();
-				const decoder = new TextDecoder();
-				let buffer = "";
+		const reader = response.body.getReader();
+		const decoder = new TextDecoder();
+		let buffer = "";
 
-				while (true) {
-					const { value, done } = await reader.read();
-					if (done) {
-						log('Server connection closed');
-						throw new Error('Connection closed');
-					}
-					
-					buffer += decoder.decode(value, { stream: true });
-					const lines = buffer.split('\n\n');
-					buffer = lines.pop() || '';
+		while (true) {
+			const { value, done } = await reader.read();
+			if (done) {
+				log('Server connection closed');
+				throw new Error('Connection closed');
+			}
+			
+			buffer += decoder.decode(value, { stream: true });
+			const lines = buffer.split('\n\n');
+			buffer = lines.pop() || '';
 
-					for(let line of lines) {
-						if(line.trim().length > 0) {
-							try {
-								const match = line.match(/^data: (.+)$/m);
-								if (match) {
-									const data = JSON.parse(match[1]);
-									if(data["type"] == "text") {
-										log("["+data["timestamp"]+" server time] "+data["data"]);
-									}
-									else if(data["type"] == "progress") {
-										mikan.progress = JSON.parse(data["data"]);
-										if(history.state != null && history.state.page == "progress") {
-											showProgress();
-										}
-									}
-									else {
-										log(data);
-									}
-								}
-							} catch(e) {
-								log(`Error parsing message: ${e.message}`);
+			for(let line of lines) {
+				if(line.trim().length > 0) {
+					try {
+						const match = line.match(/^data: (.+)$/m);
+						if (match) {
+							const data = JSON.parse(match[1]);
+							if(data["type"] == "text") {
+								log("["+data["timestamp"]+" server time] "+data["data"]);
+							}
+							else if(data["type"] == "progress") {
+								mikan.progress = JSON.parse(data["data"]);
+								showProgress();
+							}
+							else {
+								log(data);
 							}
 						}
+					} catch(e) {
+						log(`Error parsing message: ${e.message}`);
 					}
 				}
-			} else if (response.status === 401) {
-				log('Authorization failed');
-				mikan.login = false;
-				throw new Error('Authorization failed');
-			} else {
-				throw new Error('Connection failed');
 			}
-
-		} catch(error) {
-			log(`Error in server connection: ${error.message}`);
-			log('Reconnecting in ' + (waitTime/1000) + 's...');
-			
-			retryCount++;
-			waitTime = Math.min(waitTime * 1.5, maxWaitTime);
-			
-			await new Promise(resolve => setTimeout(resolve, waitTime));
-			await connect();
 		}
+	} else if (response.status === 401) {
+		log('Authorization failed');
+		mikan.login = false;
+		throw new Error('Authorization failed');
+	} else {
+		throw new Error('Connection failed');
 	}
 
+} catch(error) {
+	log(`Error in server connection: ${error.message}`);
+	log('Reconnecting in ' + (waitTime/1000) + 's...');
+	
+	retryCount++;
+	waitTime = Math.min(waitTime * 1.5, maxWaitTime);
+	
+	await new Promise(resolve => setTimeout(resolve, waitTime));
 	await connect();
+}
+}
+
+await connect();
 }
 
 function loadToken() {
@@ -279,16 +282,15 @@ if(checkInput["status"]=="failed"){
 }
 arg=checkInput["data"]["normal"];
 
-document.querySelectorAll(".formContainer .form[data-id='"+arg["id"]+"'").forEach(e=>e.cancel());
+document.querySelectorAll(".formContainer.form[data-id='"+arg["id"]+"'").forEach(e=>e.cancel());
 
-const container = document.createElement("div");
 const title = document.createElement("div");
 const form = document.createElement("form");
 const action = document.createElement("div");
 const actionConfirm = document.createElement("button");
 const actionCancel = document.createElement("button");
 
-container.classList.add("formContainer");
+form.classList.add("formContainer");
 title.classList.add("title");
 form.classList.add("form");
 action.classList.add("action");
@@ -344,10 +346,10 @@ form.style.border="";
 form.style.pointerEvents="";
 },40);
 
-container.classList.add("center");
-document.body.append(container);
+form.classList.add("center");
+document.body.append(form);
 
-container.style.opacity = "1";
+form.style.opacity = "1";
 
 return new Promise((resolve) => {
 	form.addEventListener("submit", () => {
@@ -357,8 +359,8 @@ return new Promise((resolve) => {
 			if(i.type=="checkbox"){out["data"][i.dataset.id] = i.checked.toString()}
 		}
 		resolve(out);
-		container.classList.add("remove");
-		setTimeout(()=>{container.remove()},400);
+		form.classList.add("remove");
+		setTimeout(()=>{form.remove()},400);
 	});
 	actionConfirm.addEventListener("click", () => {
 		out["status"] = "success";
@@ -367,8 +369,8 @@ return new Promise((resolve) => {
 			if(i.type=="checkbox"){out["data"][i.dataset.id] = i.checked.toString()}
 		}
 		resolve(out);
-		container.classList.add("remove");
-		setTimeout(()=>{container.remove()},400);
+		form.classList.add("remove");
+		setTimeout(()=>{form.remove()},400);
 	});
 	actionCancel.addEventListener("click", () => {
 		out["status"] = "failed";
@@ -377,8 +379,8 @@ return new Promise((resolve) => {
 			if(i.type=="checkbox"){out["data"][i.dataset.id] = i.checked.toString()}
 		}
 		resolve(out);
-		container.classList.add("remove");
-		setTimeout(()=>{container.remove()},400);
+		form.classList.add("remove");
+		setTimeout(()=>{form.remove()},400);
 	});
 	form.cancel = () => {
 		out["status"] = "failed";
@@ -387,8 +389,8 @@ return new Promise((resolve) => {
 			if(i.type=="checkbox"){out["data"][i.dataset.id] = i.checked.toString()}
 		}
 		resolve(out);
-		container.classList.add("remove");
-		setTimeout(()=>{container.remove()},400);
+		form.classList.add("remove");
+		setTimeout(()=>{form.remove()},400);
 	};
 });
 }
@@ -398,8 +400,8 @@ let checkInput = checkArg({
 	context:[
 		{
 			var:"data",
-			type:"object",
-			req:true
+			type:"array",
+			def:[]
 		},
 		{
 			var:"link",
@@ -417,7 +419,10 @@ if(checkInput["status"]=="failed"){
 }
 arg=checkInput["data"]["normal"];
 
-if(arg.data.length==0){return}
+if(arg.data.length==0){
+	document.querySelector("#content").innerHTML="";
+	return
+}
 mikan.tableData = arg.data;
 await sortTable();
 const key = [];
@@ -431,9 +436,8 @@ for(let v of colsAll){
 }
 con.innerHTML = "";
 con.dataset.displayType = "table";
-document.querySelector("#serieCover img").style.display="none";
+document.querySelector("#serieCover").classList.add("empty");
 document.querySelector("#serieCover img").src="";
-document.querySelector("#serieCover").style.height="0";
 document.body.style.removeProperty("--background");
 
 
@@ -537,15 +541,13 @@ for (let i=0; i<arg["data"].length; i++) {
 		dataCol.addEventListener("click",async()=>{if(dataCol.dataset["select"]!="true"){
 			document.querySelectorAll("#content .data > *[data-select=true]").forEach(e=>{e.dataset["select"]="false"});
 			document.querySelectorAll("#content .data > *[data-row='"+dataCol.dataset["row"]+"']").forEach(e=>{e.dataset["select"]="true"});
-			if(typeof dataCol.dataset["serieid"]=="string"&&typeof dataCol.dataset["provider"]=="string"){
-				document.querySelector("#serieCover img").style.display="";
-				document.querySelector("#serieCover img").src="/api?type=getcover&provider="+dataCol.dataset["provider"]+"&id="+dataCol.dataset["serieid"];
-				document.body.style.setProperty("--background", "url(/api?type=getcover&provider="+dataCol.dataset["provider"]+"&id="+dataCol.dataset["serieid"]+")");
-				document.querySelector("#serieCover").style.height="";
+			if(typeof dataCol.dataset["serieid"]=="string"){
+				document.querySelector("#serieCover").classList.remove("empty");
+				document.querySelector("#serieCover img").src="/api?type=getcover&id="+dataCol.dataset["serieid"]+"&provider="+dataCol.dataset["provider"];
+				document.body.style.setProperty("--background", "url(/api?type=getcover&id="+dataCol.dataset["serieid"]+"&provider="+dataCol.dataset["provider"]+")");
 			}else{
-				document.querySelector("#serieCover img").style.display="none";
+				document.querySelector("#serieCover").classList.add("empty");
 				document.querySelector("#serieCover img").src="";
-				document.querySelector("#serieCover").style.height="0";
 				document.body.style.removeProperty("--background");
 			}
 		}})
@@ -853,8 +855,10 @@ if("settings"==url.searchParams.get("page")){
 async function showProgress(){
 let data = [];
 let progress = mikan.progress;
-Object.keys(progress).forEach(e=>{
-	let ptmp = progress[e];
+let progressAll = progress["update"];
+let progressNo = progress["updateNo"];
+Object.keys(progressAll).forEach(e=>{
+	let ptmp = Object.assign({}, progressAll[e]);
 	ptmp["serieid"]=e;
 	const progressCol = ["progress","subprogress"];
 	progressCol.forEach(pro=>{
@@ -872,7 +876,28 @@ Object.keys(progress).forEach(e=>{
 	})
 	data.push(ptmp);
 })
-displayTable({data:data})
+if(history.state != null && history.state.page == "progress"){displayTable({data:data})}
+const bottomPrg = document.querySelector("#progress");
+const prg = document.createElement("div");
+if(progressNo.length > 0){
+	for (let pi=0; pi<progressNo.length; pi++) {
+		const pn = progressNo[pi];
+		const pCon = document.createElement("div");
+		const p = document.createElement("div");
+		pCon.classList.add("progressCon");
+		p.classList.add("progress");
+		pCon.dataset.id = pi
+		p.style.width = progressAll[pn]["subprogress"];
+		p.innerHTML = progressAll[pn]["name"] + " [" + progressAll[pn]["status"] + "] " + progressAll[pn]["subprogress"] + "%";
+		pCon.append(p);
+		prg.append(pCon);
+	}
+	console.log(a=prg);
+	bottomPrg.innerHTML = prg.innerHTML;
+	bottomPrg.classList.remove("empty");
+} else{
+	bottomPrg.classList.add("empty");
+}
 }
 async function contextMenu(arg){
 let def = {
@@ -1104,9 +1129,8 @@ let checklogin1st = async() => {
 			let r = await fetch(mikan["server"]+'/api?type=ping', {
 			headers: {'Authorization': `Bearer ${JSON.parse(localStorage.getItem("token"))}`}
 			});
-			if(r.status == 200){mikan.login = true; load1st()}
+			if(r.status == 200){mikan.login = true; load1st();document.querySelector(".loginlogout").classList.add("login")}
 			else{log("Login token not valid, Please try login again."); document.querySelector("#login").click()}
-			
 		}
 	}catch{
 		log("Login token corrupt, Please try login again.")
@@ -1114,24 +1138,23 @@ let checklogin1st = async() => {
 	}
 };
 
-document.querySelector("#app > header > button:nth-child(1)").addEventListener("click", () => {
-	const nav = document.querySelector("#container > nav");
-	nav.style.width = nav.style.width === '' ? '0' : '';
-	nav.style.padding = nav.style.padding === '' ? '0' : '';
-	nav.style.margin = nav.style.margin === '' ? '0' : '';
-	nav.style.visibility = nav.style.visibility === '' ? 'hidden' : '';
+document.querySelector("header > #menuToggle").addEventListener("click", () => {
+	document.querySelector("#container > .left").classList.toggle("hide");
 });
-document.querySelectorAll("nav>button").forEach(n => {if(n.id!="log"){
+document.querySelectorAll("nav > button").forEach(n => {
 	const url = new URL(location);
 	url.searchParams.set("page", n.value);
 	url.searchParams.set("value", "");
 	n.addEventListener("click",()=>{history.pushState({page:n.value,value:""}, "", url);checkPage()})
-}});
+});
 document.querySelector("#login").addEventListener('click', async () => {
 	const info = await formWindow({title:"Login", form:[{id:"username",type:"text",name:"username"},{id:"password",type:"password",name:"password"}]})
 	if(info["status"]=="success"){
 		login({username:info["data"]["username"],password:info["data"]["password"]},)
 	}
+});
+document.querySelector("#logout").addEventListener('click', async () => {
+	logout()
 });
 window.addEventListener('popstate', checkPage);
 log("script loaded");

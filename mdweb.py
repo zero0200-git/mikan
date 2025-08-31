@@ -68,25 +68,33 @@ def verify_token(token, client_ip=None, user_agent=None):
 		return False
 
 def send_message(data, type="text", timestamp=datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')):
-    out = {"timestamp": timestamp}
-    if type == "json":
-        out["type"] = "json"
-        out["data"] = json.dumps(out["data"])
-    elif type == "progress":
-        out["type"] = "progress"
-        out["data"] = json.dumps(data)
-    else:
-        out["type"] = "text"
-        out["data"] = data
-    
-    for client in clients[:]:
-        try:
-            message = f"data: {json.dumps(out)}\n\n"
-            client.write(message.encode('utf-8'))
-            client.flush()
-        except (BrokenPipeError, ConnectionResetError):
-            if client in clients:
-                clients.remove(client)
+	out = {"timestamp": timestamp}
+	if type == "json":
+		out["type"] = "json"
+		out["data"] = json.dumps(data)
+	elif type == "progress":
+		out["type"] = "progress"
+		out["data"] = json.dumps(data)
+	else:
+		out["type"] = "text"
+		out["data"] = data
+	
+	message = f"data: {json.dumps(out)}\n\n"
+	message_bytes = message.encode('utf-8')
+	
+	for client in clients[:]:
+		try:
+			client.write(message_bytes)
+			client.flush()
+		except (BrokenPipeError, ConnectionResetError, ssl.SSLError) as e:
+			logged(f"Error sending message to client: {str(e)}")
+			if client in clients:
+				clients.remove(client)
+		except Exception as e:
+			logged(f"Unexpected error sending message: {str(e)}")
+			if client in clients:
+				clients.remove(client)
+
 class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 	def __init__(self, *args, **kwargs):
 		self.web_dir = os.path.join(scriptLocation, 'web')
@@ -189,10 +197,20 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 				send_message("New Client connected to log")
 				progress.send(progress.to_dict())
 				while True:
-					self.wfile.write(b': keepalive\n\n')
-					self.wfile.flush()
-					time.sleep(30)
-			except (BrokenPipeError, ConnectionResetError):
+					try:
+						self.wfile.write(b': keepalive\n\n')
+						self.wfile.flush()
+						time.sleep(30)
+					except (BrokenPipeError, ConnectionResetError, ssl.SSLError) as e:
+						logged(f"SSE connection error: {str(e)}")
+						break
+					except Exception as e:
+						logged(f"Unexpected error in SSE: {str(e)}")
+						break
+						
+			except (BrokenPipeError, ConnectionResetError) as e:
+				logged(f"Client disconnected: {str(e)}")
+			finally:
 				if self.wfile in clients:
 					clients.remove(self.wfile)
 			return

@@ -1,5 +1,5 @@
 html:root {
-	--text: rgba(200, 200, 200, 1);
+	--text: rgb(240, 240, 240);
 	--background: rgba(0, 0, 0, 1);
 	--background: url(/api?type=getbg);
 	--backgroundEle: rgba(0, 0, 0, 0.4);
@@ -38,6 +38,7 @@ body {
 	height: 100%;
 	padding: calc(var(--padding)/2);
 	padding-bottom: env(safe-area-inset-bottom, calc(var(--padding)/2));
+	padding-top: env(safe-area-inset-top, calc(var(--padding)/2));
 }
 #app > #appbgblur {
 	backdrop-filter: blur(calc(var(--blur)/5));
@@ -52,10 +53,18 @@ button,input,select {
 	backdrop-filter: blur(var(--blur));
 	color: var(--text);
 	border-radius: var(--round);
-	padding: var(--padding);
 	border: 0.1rem solid var(--text);
 	cursor: pointer;
 	font-size: 1rem;
+}
+button {
+	display: flex;
+	justify-content: center;
+    align-items: center;
+	padding: calc(var(--padding)/5*4);
+}
+button > * {
+	margin: calc(var(--padding)/5*2);
 }
 input,select {
 	cursor: auto;
@@ -67,12 +76,17 @@ header {
 	flex-direction: row;
 	position: sticky;
 	top: 0;
-	align-items: baseline;
+	align-items: stretch;
 	border-radius: var(--round);
 	margin: var(--margin);
 	padding: calc(var(--padding)/2);
 	background: var(--backgroundEle);
 	backdrop-filter: blur(var(--blur));
+}
+#title {
+	margin: 0.2rem;
+	font-size: 1.2rem;
+	align-content: center;
 }
 header div {
 	font-size: 1.2rem;
@@ -87,30 +101,60 @@ header div {
 	overflow: hidden;
 }
 #container > * {
+	display: flex;
+    flex-direction: column;
+}
+#container > * > * {
 	margin: var(--margin);
 	padding: var(--padding);
 	border-radius: var(--round);
 	background: var(--backgroundEle);
 	backdrop-filter: blur(var(--blur));
 }
+#container > * > .empty{
+	height: 0;
+	padding: 0;
+	margin: 0;
+}
+#container > .right {
+	width: 100%;
+}
+#container > .left {
+	width: calc(10% + 12rem);
+}
+#container > .left.hide {
+	width: 0;
+}
+#container > .left.hide * {
+	margin: 0;
+	padding: 0;
+}
 nav {
 	overflow: auto;
 	display: flex;
 	flex-direction: column;
-	width: calc(10% + 12rem);
+	flex-shrink: 0;
 }
-#content { 
-	overflow-y: scroll;
-	width: 100%;
+#contentBar { 
+	display: flex;
+	justify-content: flex-end;
+}
+#contentBar > * { 
+	margin: 0 var(--margin);
+}
+#contentBar > :last-child { 
+	margin: 0;
+}
+#content {
+	flex-grow: 1;
 }
 svg {
-	width: 1rem;
+	width: 1.2rem;
 	fill: none;
 	stroke: var(--text);
-	stroke-width: 20%;
+	stroke-width: 0.2rem;
 }
 #serieCover{
-	height: 40%;
 	overflow: hidden;
 	padding: 0.4rem;
 	flex-shrink: 0;
@@ -124,13 +168,16 @@ svg {
 	min-height: 6rem;
 	overflow: hidden;
 	padding: var(--padding);
+	flex-grow: 1;
+    display: flex;
+    flex-direction: column;
 }
 #log>div:nth-child(1){
 	border-bottom: 1px solid;
 }
 #log>div:nth-child(2){
 	overflow-y: scroll;
-	height: 100%;
+	flex-grow: 1;
 }
 #log>div:nth-child(2)>*{
 	margin: 0;
@@ -139,7 +186,7 @@ svg {
 	word-break: break-word;
 	padding-bottom: 1rem;
 }
-.formContainer > *{
+.formContainer{
 	width: 20vw;
 	min-width: 20rem;
 	max-width: 80vw;
@@ -151,45 +198,51 @@ svg {
 	z-index: 10;
 	overflow: auto;
 }
-.formContainer.center > * {
+.formContainer.center {
 	position: fixed;
 	top: 10%;
 	left: 50%;
 	transform: translateX(-50%);
 }
-.formContainer.remove > * {
+.formContainer.remove {
 	transform: translateX(-50%) scale(0);
 }
 .formContainer > .title {
 	font-size: 1.2rem;
-	font-weight: 600;
+	font-weight: 500;
 }
-.formContainer > .form {
+.formContainer.form {
 	display: flex;
 	flex-direction: column;
 	padding: var(--padding);
 }
-.formContainer > .form > * {
+.formContainer.form > * {
 	margin: var(--margin);
 }
-.formContainer > .form > label {
+.formContainer.form > label {
 	display: flex;
 	align-items: baseline;
 }
-.formContainer > .form > label > * {
+.formContainer.form > label > * {
 	width: 100%;
 	margin-left: calc(var(--margin)*2);
 }
-.formContainer > .form  > .action {
+.formContainer.form  > .action {
 	display: flex;
 	flex-direction: row-reverse;
 }
-.formContainer > .form > .action > * {
+.formContainer.form > .action > * {
 	margin: var(--margin);
 }
 
-#login {
+.loginlogout {
 	margin-left: auto;
+}
+.loginlogout:not(.login) #logout {
+	display: none;
+}
+.loginlogout.login #login {
+	display: none;
 }
 #content[data-display-type=table] { 
 	--col-template: auto;
@@ -295,12 +348,32 @@ svg {
 .progressCon{
 	background: #333;
 	border-radius: var(--round);
+	overflow: hidden;
 }
 .progressCon > .progress{
 	min-height: 1rem;
+	height: 100%;
 	background: rgba(254, 142, 1, 1);
 	border-radius: inherit;
 	font-size: 0.8rem;
 	text-align: center;
 	white-space: nowrap;
+}
+#progress .progressCon{
+	height: 2rem;
+	margin-bottom: var(--padding);
+	scroll-snap-align: center;
+}
+#progress .progressCon:last-child{
+	margin-bottom: 0;
+}
+#progress .progressCon > .progress{
+	font-size: 1rem;
+	line-height: 2rem;
+}
+#progress{
+	height: calc((var(--padding)*2) + 2rem);
+	overflow: auto;
+	flex-shrink: 0;
+	scroll-snap-type: y mandatory;
 }

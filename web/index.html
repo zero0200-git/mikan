@@ -1,39 +1,45 @@
 <!DOCTYPE html>
 <html lang="en" style="font-size: 16px;">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Mikan Web Client</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+	<title>Mikan Web Client</title>
 </head>
-<body><div class="loading"style="position:fixed;background:#000;top:0;bottom:0;left:0;right:0;z-index:10000;text-align:center;">Loading ...<script>function load(){document.removeEventListener("DOMContentLoaded",load);load=undefined;setTimeout(function(){document.querySelector(".loading").remove()},600)};document.addEventListener("DOMContentLoaded",load)</script></div>
-    <div id="app">
-        <div id="appbgblur"></div>
-        <header>
-            <button><svg viewBox="0 0 32 32"><path d="M2,2 l26,0 m0,14 l-26,0 m0,14 l26,0"></path></svg></button>
-            <div style="font-size: 1.2rem;align-content: center;">🍊 Mikan Web Client</div>
-            <button id="login">Login</button>
-        </header>
-        <div id="container">
-            <nav>
-                <button value="search">Search</button>
-                <button value="knownseries">Series</button>
-                <button value="knowngroups">Group</button>
-                <button value="settings">Settings</button>
-                <button value="progress">Progress</button>
-                <div id="serieCover">
-                    <img src="" alt=" " style="display:none;">
-                </div>
-                <div id="log">
-                    <div>Log</div>
-                    <div></div>
-                </div>
-            </nav>
-            <div id="content" tabindex="0">
-
-            </div>
-        </div>
-        
-    </div>
+<body><div class="loading"style="position:fixed;background:#000;top:0;bottom:0;left:0;right:0;z-index:10000;text-align:center;">Loading ...<script>load=()=>{document.removeEventListener("DOMContentLoaded",load);load=undefined;setTimeout(function(){document.querySelector(".loading").remove()},600)};document.addEventListener("DOMContentLoaded",load)</script></div>
+	<div id="app">
+		<div id="appbgblur"></div>
+		<header>
+			<button id="menuToggle"><svg viewBox="0 0 32 32"><path d="M2,2 l29,0 m0,14 l-29,0 m0,14 l29,0"></path></svg></button>
+			<div id="title">🍊 Mikan Web Client</div>
+			<div class="loginlogout">
+				<button id="login">Login</button>
+				<button id="logout">Logout</button>
+			</div>
+		</header>
+		<div id="container">
+			<div class="left">
+				<nav>
+					<button value="search">Search</button>
+					<button value="knownseries">Series</button>
+					<button value="knowngroups">Group</button>
+					<button value="settings">Settings</button>
+					<button value="progress">Progress</button>
+				</nav>
+				<div id="serieCover" class="empty">
+					<img src="" alt="cover">
+				</div>
+				<div id="log">
+					<div>Log</div>
+					<div></div>
+				</div>
+			</div>
+			<div class="right">
+				<div id="content"></div>
+				<div id="progress" class="empty" tabindex="0"></div>
+			</div>
+		</div>
+		
+	</div>
 
 <div id="context"></div>
 <link type="text/css" rel="stylesheet" href="./style.css">

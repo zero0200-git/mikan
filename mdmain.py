@@ -39,7 +39,7 @@ class MDMain:
 		db.execute('PRAGMA journal_mode=WAL;')
 
 		if args["provider"] == "mangadex":
-			r = self.request(f"{url["mangadex"]["api"]}/manga?includes[]=cover_art,author&order[relevance]=desc&originalLanguage[]=ja&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic&title={searchV}")
+			r = self.request(f"{url["mangadex"]["api"]}/manga?includes[]=cover_art,author&order[relevance]=desc&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic&title={searchV}")
 			data = r["json"]["data"]
 			for d in data:
 				data = {"serieid": d["id"], "name": "", "authorid": "", "author": "", "artistid": "", "artist": "", "provider": "mangadex"}
@@ -800,19 +800,21 @@ class MDMain:
 		if checkInput["status"]=="failed": raise Exception(checkInput["data"]["msg"])
 		args=checkInput["data"]["normal"]
 
-		manga = queryDB(select=["id","provider"],table=["series"],where={"id":args["id"]})
+		manga = queryDB(select=["id","source"],table=["series"],where={"id":args["id"]})
 		if manga and args["id"] == manga[0]["id"]:
-			progress.update(args["id"], {"status": "downloading cover", "progress": 0})
-			data = self.getSerieInfo({"id":args["id"],"provider":manga[0]["provider"]})
+			progress.update(args["id"], {"status": "downloading cover", "progress": 0, "subprogress": 0})
+			data = self.getSerieInfo({"id":args["id"],"provider":manga[0]["source"]})
 			data["extension"] = data["cover_extension"]
 			data["artist"] = data["artist_string"]
 			data["author"] = data["author_string"]
+			progress.update(args["id"], {"status": "downloaded cover", "progress": 30, "subprogress": 100})
 
+			progress.update(args["id"], {"status": "saving cover to db", "progress": 40, "subprogress": 0})
 			updateDB(values={"imageName":data["cover_id"], "image":data["cover"]},table=["series"],where={"id":data["id"]})
-			progress.update(args["id"], {"status": "saved cover to db", "progress": 100})
+			progress.update(args["id"], {"status": "saved cover to db", "progress": 60, "subprogress": 100})
 
 			if settings["saveCover"] == "yes":
-				progress.update(args["id"], {"status": "saving cover to file", "progress": 0})
+				progress.update(args["id"], {"status": "saving cover to file", "progress": 80, "subprogress": 0})
 				format = settings["coverDir"]
 				lo = settings["saveDir"]
 
@@ -826,8 +828,8 @@ class MDMain:
 				with open(lo, "wb") as file:
 					file.write(data["cover"])
 				self.logged(f"Cover saved as {lo}")
-				progress.update(args["id"], {"status": "saved cover to file", "progress": 100})
-				
+				progress.update(args["id"], {"status": "saved cover to file", "progress": 100, "subprogress": 100})
+
 				return 1
 			else:
 				return 0
