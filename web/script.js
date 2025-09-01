@@ -888,7 +888,7 @@ if(progressNo.length > 0){
 		pCon.classList.add("progressCon");
 		p.classList.add("progress");
 		pCon.dataset.id = pi
-		p.style.width = progressAll[pn]["subprogress"];
+		p.style.width = progressAll[pn]["subprogress"] + "%";
 		p.innerHTML = progressAll[pn]["subprogress"] + "% " + progressAll[pn]["status"] + " | " + progressAll[pn]["name"];
 		pCon.append(p);
 		prg.append(pCon);

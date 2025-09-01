@@ -121,8 +121,8 @@ header div {
 	flex-grow: 1;
 }
 #container > .left {
-	min-width: calc(10% + 12rem);
-	width: calc(10% + 12rem);
+	min-width: calc(10% + 6rem);
+	width: calc(10% + 6rem);
 }
 #container > .left.hide {
 	min-width: 0;

@@ -517,7 +517,7 @@ class MDMain:
 						p["data"]["downloaded"] = False
 						insereplaceDB(table=["chapter"], values={"id":p["data"]["id"], "series":dataSerie["id"], "title":p["data"]["title"] if p["data"]["title"] is not None else "", "volume":p["data"]["volume"] if p["data"]["volume"] is not None else "", "chapter":p["data"]["chapter"], "tgroup":p["data"]["groupid"] if "groupid" in p["data"] else "", "language":p["data"]["lang_short"], "time":datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "got":"0"})
 					manga.append(p)
-			progress.update(id, {"status": "got all chapter info", "progress": "100", "subprogress": "0"})
+			progress.update(id, {"status": "got all chapter info", "progress": "100", "subprogress": "100"})
 			return manga
 		return {}
 
@@ -573,7 +573,7 @@ class MDMain:
 							report = {
 								"url": f"{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{p}",
 								"success": True if r["status"] == 200 else False,
-								"bytes": r["size"],
+								"bytes": r["size"] if r["status"] == 200 else 0,
 								"duration": round(r["usedtime"] * 1000),
 								"cached": True if r["status"] == 200 else False
 							}
@@ -612,7 +612,7 @@ class MDMain:
 							self.logged(f"Download {m["serie"]} - chapter {m['chapter']} success.")
 
 				progress.update(id, {"status": f"download {i}/{len(mangadb)}", "progress": str(round((i/len(mangadb))*100,2)), "subprogress": "0"})
-			self.logged(f"Download {serie["serie"]["name"]} success.")
+			self.logged(f"Download {serie["serie"]} success.")
 			progress.update(id, {"status": "download all", "progress": "100", "subprogress": "100"})
 			return mangadb
 
@@ -868,8 +868,8 @@ class MDMain:
 				updateDB(values={"name":out["serie_original"]},table=["series"],where={"id":args["id"]})
 				logged(f"Change serie name from \"{fname[1]}\" to \"{out["serie_original"]}\"")
 			if fname and fname[0]["forceName"] != None:
-				out["serie"] = fname[0]
-				out["serie_force"] = fname[0]
+				out["serie"] = fname[0]["forceName"]
+				out["serie_force"] = fname[0]["forceName"]
 
 			for req in manga["relationships"]:
 				if req["type"] == "author":
@@ -915,8 +915,8 @@ class MDMain:
 				updateDB(values={"name":out["serie_original"]},table=["series"],where={"id":args["id"]})
 				logged(f"Change serie name from \"{fname[1]}\" to \"{out["serie_original"]}\"")
 			if fname and fname[0]["forceName"] != None:
-				out["serie"] = fname[0]
-				out["serie_force"] = fname[0]
+				out["serie"] = fname[0]["forceName"]
+				out["serie_force"] = fname[0]["forceName"]
 
 			for a in manga["authors"]:
 				out["author"].append(a["slug"])
