@@ -475,12 +475,12 @@ for (let i = 0; i < cols.length; i++) {
 		head.dataset["select"]="false";
 		let filter = await formWindow({title:"Filter: "+cols[i],form:[{id:"filter",type:"text",value:head.dataset["filter"]}]});
 		if(filter["status"]=="success"){
-			let el = document.querySelectorAll("#content > .data > *:nth-child("+cols.length+"n+"+(i+1)+"):not(.scrollbar)")
+			let el = document.querySelectorAll("#content > .data > [data-cols="+cols[i]+"]")
 			let text = filter["data"]["filter"]
 			let re = new RegExp(text,"i")
 			for(let e = 0; e < el.length; e++) {
 				let row = document.querySelectorAll("#content > .data > [data-row='"+el[e].dataset.row+"']");
-				if(el[e].innerText.search(re)<0){
+				if(el[e].dataset["colsdata"].search(re)<0){
 					row.forEach(e => {e.style.display="none"})
 				}else{row.forEach(e => {e.style.display=""})}
 			}
@@ -514,9 +514,7 @@ dataSec.classList.add("data");
 con.append(dataSec);
 dataLen = Array.from({length: cols.length},()=>0);
 const dataLoad = new IntersectionObserver(entries => {
-	entries.forEach(entry => {
-		entry.target.style.visibility = entry.isIntersecting ? 'visible' : 'hidden';
-	});
+	entries.forEach(entry => {entry.target.style.visibility = entry.isIntersecting ? 'visible' : 'hidden'});
 }, {
 	root: dataSec,
 	rootMargin: '100%',
@@ -532,6 +530,8 @@ for (let i=0; i<arg["data"].length; i++) {
 		dataCol.title = arg["data"][i][cols[d]].innerText||arg["data"][i][cols[d]].value||arg["data"][i][cols[d]]||arg["data"][i][cols[d-1]];
 		dataCol.dataset["row"] = i+1;
 		dataCol.dataset["select"] = "false";
+		dataCol.dataset["cols"] = cols[d];
+		dataCol.dataset["colsdata"] = arg["data"][i][cols[d]].innerText || String(arg["data"][i][cols[d]]);
 		dataCol.tabIndex=0;
 		if(arg.link){
 			url.searchParams.set("value", arg["data"][i][key[0]]);
