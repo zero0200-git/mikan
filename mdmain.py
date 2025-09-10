@@ -136,7 +136,7 @@ class MDMain:
 		db.execute('PRAGMA journal_mode=WAL;')
 		cursor = db.cursor()
 		sql = """
-			SELECT s.id AS serieid, s.name AS name, s.h AS h, s.source AS source,
+			SELECT s.id AS serieid, COALESCE(s.forceName, s.name) AS name, s.h AS h, s.source AS source,
 				GROUP_CONCAT(DISTINCT COALESCE(a1.name, 'Unknown')) AS authors,
 				GROUP_CONCAT(DISTINCT COALESCE(a2.name, 'Unknown')) AS artists
 			FROM series s

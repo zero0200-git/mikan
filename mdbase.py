@@ -353,7 +353,7 @@ def updateDB(values={},table=["series"], where={}, whereopt="AND"):
 	if values:
 		parts = []
 		for key, value in values.items():
-			if isinstance(value, (str,int,float,bool)):
+			if isinstance(value, (str,int,float,bool,type(None))):
 				parts.append(f"{key} = ?")
 				params.append(value)
 		q += " SET " + ", ".join(parts)
@@ -376,7 +376,6 @@ def updateDB(values={},table=["series"], where={}, whereopt="AND"):
 		q += " WHERE " + wo.join(parts)
 	else:
 		raise TypeError("No where value on update")
-	print(q)
 	cr.execute(q, params)
 	db.commit()
 	cr.close()
