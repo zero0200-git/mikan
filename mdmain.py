@@ -6,13 +6,33 @@ import json
 import sqlite3
 import threading
 import urllib.request
+import traceback
 from datetime import datetime
-from functools import lru_cache
+from functools import lru_cache, wraps
 from mdbase import config,url,headers,headersPost,progress,logged,settings,checkArg,provider,queryDB,insereplaceDB,updateDB
 
 class MDMain:
 	def __init__(self):
 		self.web = False
+
+	def __getattribute__(self, name):
+		attr = super().__getattribute__(name)
+		
+		if callable(attr) and not name.startswith('__'):
+			@wraps(attr)
+			def wrapped(*args, **kwargs):
+				try:
+					return attr(*args, **kwargs)
+				except Exception as e:
+					try:
+						self.logged(f"Error in {name}: {str(e)}")
+					except Exception:
+						logged(f"Error in {name}: {str(e)}")
+					finally:
+						logged(traceback.format_exc())
+						raise
+			return wrapped
+		return attr
 
 	def search(self,args):
 		checkInput = checkArg({
@@ -65,7 +85,7 @@ class MDMain:
 				data["artist"] = data["artist"].rstrip(", ")
 				data["artistid"] = data["artistid"].rstrip(", ")
 				re.append(data)
-    
+	
 		elif args["provider"] == "comick":
 			r = self.request(f"{url["comick"]["api"]}/v1.0/search/?type=comic&page=1&limit=20&tachiyomi=true&showall=false&sort=rating&q={searchV}")
 			data = json.loads(r["data"])
@@ -996,9 +1016,13 @@ class MDMain:
 				
 				if chapter["provider"] == "mangadex":
 					r = self.request(f"{url["mangadex"]["api"]}/at-home/server/{chapterdb[0]["id"]}")
+					if r["status"]!=200 or r["json"]["result"]!="ok" or "chapter" not in r["json"]:
+						progress.update(chapterdb[0]["series"], {"status": f"failed to download {chapter['title'] if chapter["title"] is not "" else chapter['chapter']} (no data)", "progress": "100", "subprogress": "100"})
+						self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} failed. (no chapter data)")
+						return 0
 					chp = r["json"]
 					for j,p in enumerate(chp["chapter"]["data"], start=1):
-						progress.update(chapterdb[0]["series"], {"status": f"downloading chapter {chapterdb[0]['chapter']} page {j}/{len(chp['chapter']['data'])}", "progress": "0", "subprogress": str(round((j/len(chp['chapter']['data']))*100,2))})
+						progress.update(chapterdb[0]["series"], {"status": f"downloading chapter {chapter['chapter']} page {j}/{len(chp['chapter']['data'])}", "progress": "0", "subprogress": str(round((j/len(chp['chapter']['data']))*100,2))})
 						chapter["page"] = str(j)
 						chapter["extension"] = os.path.splitext(p)[1]
 						chapter["time"] = datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')
@@ -1017,14 +1041,14 @@ class MDMain:
 					else:
 						updateDB(table=["chapter"], values={"got":1}, where={"id":chapterdb[0]["id"]})
 						self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} success.")
-						progress.update(chapterdb[0]["series"], {"status": f"download chapter {chapterdb[0]['chapter']}", "progress": "100", "subprogress": "100"})
+						progress.update(chapterdb[0]["series"], {"status": f"download chapter {chapter['title'] if chapter["title"] is not "" else chapter['chapter']}", "progress": "100", "subprogress": "100"})
 						return 1
 				
 				elif chapter["provider"] == "comick":
 					r = self.request(f"{url["comick"]["api"]}/chapter/{chapterdb[0]["id"]}/get_images")
 					chp = r["json"]
 					for j,p in enumerate(chp, start=1):
-						progress.update(chapterdb[0]["series"], {"status": f"downloading chapter {chapterdb[0]['chapter']} page {j}/{len(chp)}", "progress": "0", "subprogress": str(round((j/len(chp))*100,2))})
+						progress.update(chapterdb[0]["series"], {"status": f"downloading chapter {chapter['title'] if chapter["title"] is not "" else chapter['chapter']} page {j}/{len(chp)}", "progress": "0", "subprogress": str(round((j/len(chp))*100,2))})
 						chapter["page"] = str(j)
 						chapter["extension"] = os.path.splitext(p["b2key"])[1]
 						chapter["time"] = datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')
@@ -1035,7 +1059,7 @@ class MDMain:
 					else:
 						updateDB(table=["chapter"], values={"got":1}, where={"id":chapterdb[0]["id"]})
 						self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} success.")
-						progress.update(chapterdb[0]["series"], {"status": f"download chapter {chapterdb[0]['chapter']}", "progress": "100", "subprogress": "100"})
+						progress.update(chapterdb[0]["series"], {"status": f"download chapter {chapter['title'] if chapter["title"] is not "" else chapter['chapter']}", "progress": "100", "subprogress": "100"})
 						return 1
 		return 0
 
