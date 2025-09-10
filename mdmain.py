@@ -880,8 +880,8 @@ class MDMain:
 			out["lastUpdate"] = re.sub(r'([+-]\d{2}:\d{2})$','',manga["attributes"]["updatedAt"].replace("T"," "))
 			out["author"] = []
 			out["artist"] = []
-			out["serie_original"] = manga["attributes"]["title"]["en"]
-			out["serie"] = manga["attributes"]["title"]["en"]
+			out["serie_original"] = next(iter(manga["attributes"]["title"].values()))
+			out["serie"] = out["serie_original"]
 			out["serie_force"] = None
 			fname = queryDB(select=["forceName","name"],table=["series"],where={"id":args["id"]})
 			if fname and fname[0]["name"] != out["serie_original"]:
