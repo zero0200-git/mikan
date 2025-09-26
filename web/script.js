@@ -445,7 +445,7 @@ let dataLen = []
 let dataLenMax = (100/(cols.length-1))*.9;
 let dataLenMin = 20;
 let dataLenNormal = false;
-for (const k of cols) {dataLen.push(arg.data[0][k].toString().length>dataLenMin?arg.data[0][k].toString().length:dataLenMin)}
+for (const k of cols) {arg.data[0][k] != null ? dataLen.push(arg.data[0][k].toString().length>dataLenMin?arg.data[0][k].toString().length:dataLenMin) : dataLen.push(dataLenMin) }
 function tableNormal(){
 for (let i=0; (i<10)&&(dataLenNormal!=true); i++) {
 let r = dataLen.reduce((sum,val)=>sum+val,0);
@@ -523,6 +523,7 @@ const dataLoad = new IntersectionObserver(entries => {
 for (let i=0; i<arg["data"].length; i++) {
 	const url = new URL(location);
 	for (let d = 0; d < cols.length; d++) {
+		if(arg["data"][i][cols[d]]==null){arg["data"][i][cols[d]]=""}
 		dataLen[d] = dataLen[d] + (arg["data"][i][cols[d]].toString().length>dataLenMin?arg["data"][i][cols[d]].toString().length:dataLenMin);
 		dataLenNormal = false;
 		const dataCol = arg.link ? document.createElement("a") : document.createElement("div");

@@ -147,7 +147,7 @@ class MDMain:
 	def knownSeriesChapter(self,serieid):
 		re = []
 		for d in queryDB(select=["chapter.series AS serieid", "chapter.id AS chapterid", "chapter.title AS name", "chapter.chapter AS chapter", "chapter.volume AS volume", "chapter.got AS dl", "chapter.tgroup AS tgroupid", "tgroup.name AS tgroup", "chapter.time AS time"], table=["chapter LEFT JOIN tgroup ON chapter.tgroup = tgroup.id"], where={"series": serieid}):
-			re.append({"serieid": d["serieid"], "chapterid": d["chapterid"], "name": d["name"], "chapter": d["chapter"], "volume": d["volume"], "saved": "true" if d["dl"]==1 else "false" , "tgroupid": d["tgroupid"], "tgroup": d["tgroup"], "check": d["time"]})
+			re.append({"serieid": d["serieid"], "chapterid": d["chapterid"], "name": d["name"], "chapter": d["chapter"], "volume": d["volume"], "saved": "true" if d["dl"]==1 else "false" , "tgroupid": d["tgroupid"], "tgroup": d["tgroup"] if d["tgroup"]!=None else "", "check": d["time"]})
 
 		return re
 
