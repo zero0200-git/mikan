@@ -483,11 +483,11 @@ url = {
 		"image": "https://uploads.mangadex.org",
 		"report": "https://api.mangadex.network/report"
 	},
-	"comick": {
-		"url": "https://comick.io",
-		"api": "https://api.comick.fun",
-		"image": "https://meo.comick.pictures"
-	}
+	# "comick": {
+	# 	"url": "https://comick.io",
+	# 	"api": "https://api.comick.fun",
+	# 	"image": "https://meo.comick.pictures"
+	# }
 }
 provider = url.keys()
 headers = {

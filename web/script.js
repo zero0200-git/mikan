@@ -709,7 +709,7 @@ if(checkInput["status"]=="failed"){
 }
 arg=checkInput["data"]["normal"];
 if(arg["value"]==""){
-	const searchValue = await formWindow({title:"Search",form:[{id:"value",name:"search",type:"text"},{id:"provider",name:"provider",type:"select",value:"mangadex,comick"}]});
+	const searchValue = await formWindow({title:"Search",form:[{id:"value",name:"search",type:"text"},{id:"provider",name:"provider",type:"select",value:"mangadex"}]});
 	if(searchValue["status"]=="success"){
 		searchValue["data"]["type"]="search";
 		const url = new URL(location);

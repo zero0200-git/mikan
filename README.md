@@ -4,7 +4,6 @@ A web GUI manga downloader
     <summary>Supported Sources</summary>
 
 * ### Mangadex
-* ### Comick
 </details>
 
 ## How to Use

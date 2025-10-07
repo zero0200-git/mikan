@@ -538,8 +538,10 @@ class MDMain:
 						insereplaceDB(table=["chapter"], values={"id":p["data"]["id"], "series":dataSerie["id"], "title":p["data"]["title"] if p["data"]["title"] is not None else "", "volume":p["data"]["volume"] if p["data"]["volume"] is not None else "", "chapter":p["data"]["chapter"], "tgroup":p["data"]["groupid"] if "groupid" in p["data"] else "", "language":p["data"]["lang_short"], "time":datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "got":"0"})
 					manga.append(p)
 			progress.update(id, {"status": "got all chapter info", "progress": "100", "subprogress": "100"})
-			return manga
-		return {}
+			return 1
+		else:
+			self.logged("Not valid id/provider or not added")
+			return 0
 
 	def downloadToLestest(self,args):
 		checkInput = checkArg({
@@ -816,6 +818,9 @@ class MDMain:
 		args=checkInput["data"]["normal"]
 
 		manga = queryDB(select=["id","source"],table=["series"],where={"id":args["id"]})
+		if manga is False or manga[0]["source"] not in provider:
+			self.logged(f"Not valid id/provider")
+			return 0
 		if manga and args["id"] == manga[0]["id"]:
 			progress.update(args["id"], {"status": "downloading cover", "progress": 0, "subprogress": 0})
 			data = self.getSerieInfo({"id":args["id"],"provider":manga[0]["source"]})
@@ -997,7 +1002,7 @@ class MDMain:
 		id = args["id"]
 		chapterdb = queryDB(select=["series","id","title","chapter","volume","tgroup","language","time","got"],table=["chapter"],where={"id":id})
 		seriedb = queryDB(select=["id","name","forceName","author","artist","h","source"],table=["series"],where={"id":chapterdb[0]["series"]})
-		if chapterdb and chapterdb[0]["id"] == id and seriedb and seriedb[0]["id"] == chapterdb[0]["series"]:
+		if chapterdb and chapterdb[0]["id"] == id and seriedb and seriedb[0]["id"] == chapterdb[0]["series"] and seriedb[0]["source"] in provider:
 			if seriedb[0]["source"] in provider:
 				location = settings["saveHDir"] if seriedb[0]["h"]==True else settings["saveDir"]
 				format = settings["hSaveName"] if seriedb[0]["h"]==True else settings["saveName"]
@@ -1061,6 +1066,12 @@ class MDMain:
 						self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} success.")
 						progress.update(chapterdb[0]["series"], {"status": f"download chapter {chapter['title'] if chapter["title"] is not "" else chapter['chapter']}", "progress": "100", "subprogress": "100"})
 						return 1
+		elif not chapterdb:
+			self.logged(f"Not valid chapter id")
+		elif not seriedb:
+			self.logged(f"Not valid serie id")
+		elif seriedb[0]["source"] not in provider:
+			self.logged(f"Not valid provider")
 		return 0
 
 
