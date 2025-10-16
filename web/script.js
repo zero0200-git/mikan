@@ -240,7 +240,7 @@ async function formWindow(arg){
 let def = {
 	location: document.body,
 	title: "title",
-	title: "title",
+	id: "form",
 	form: [
 		{
 			id: "input",
@@ -259,7 +259,7 @@ let checkInput = checkArg({
 		{
 			var:"id",
 			type:"string",
-			type:"formWindow"
+			def:"formWindow"
 		},
 		{
 			var:"location",
@@ -286,6 +286,7 @@ document.querySelectorAll(".formContainer.form[data-id='"+arg["id"]+"'").forEach
 
 const title = document.createElement("div");
 const form = document.createElement("form");
+const inputData = document.createElement("div");
 const action = document.createElement("div");
 const actionConfirm = document.createElement("button");
 const actionCancel = document.createElement("button");
@@ -293,11 +294,10 @@ const actionCancel = document.createElement("button");
 form.classList.add("formContainer");
 title.classList.add("title");
 form.classList.add("form");
+inputData.classList.add("inputData");
 action.classList.add("action");
+form.classList.add("center");
 
-form.append(title);
-container.append(form);
-action.append(actionConfirm,actionCancel);
 
 form.dataset.id = arg["id"];
 title.innerHTML = arg["title"];
@@ -309,6 +309,19 @@ form.style.width="0";
 form.style.padding="0";
 form.style.border="none";
 form.style.pointerEvents="none";
+
+setTimeout(()=>{
+form.style.width="";
+form.style.padding="";
+form.style.border="";
+form.style.pointerEvents="";
+},40);
+
+form.append(title);
+form.append(inputData);
+action.append(actionConfirm,actionCancel);
+form.append(action);
+document.body.append(form);
 
 form.method = "dialog";
 let formInput = [];
@@ -334,22 +347,11 @@ for(let i of arg["form"]){
 		}
 	}
 	inputLabel.append(input);
-	form.append(inputLabel);
+	inputData.append(inputLabel);
 	formInput.push(input);
+	await new Promise(s => setTimeout(s, 40));
 }
-form.append(action);
 
-setTimeout(()=>{
-form.style.width="";
-form.style.padding="";
-form.style.border="";
-form.style.pointerEvents="";
-},40);
-
-form.classList.add("center");
-document.body.append(form);
-
-form.style.opacity = "1";
 
 return new Promise((resolve) => {
 	form.addEventListener("submit", () => {
@@ -434,6 +436,7 @@ for(let v of colsAll){
 	else if(v.includes("id")){key.push(v)}
 	else if(v.includes("action")!=true){cols.push(v)}
 }
+const colsLength = cols.length;
 con.innerHTML = "";
 con.dataset.displayType = "table";
 document.querySelector("#serieCover").classList.add("empty");
@@ -442,7 +445,7 @@ document.body.style.removeProperty("--background");
 
 
 let dataLen = []
-let dataLenMax = (100/(cols.length-1))*.9;
+let dataLenMax = (100/(colsLength-1))*.9;
 let dataLenMin = 20;
 let dataLenNormal = false;
 for (const k of cols) {arg.data[0][k] != null ? dataLen.push(arg.data[0][k].toString().length>dataLenMin?arg.data[0][k].toString().length:dataLenMin) : dataLen.push(dataLenMin) }
@@ -459,12 +462,12 @@ tableNormal();
 const header = document.createElement("div");
 header.classList.add("header");
 con.append(header);
-for (let i = 0; i < cols.length; i++) {
+for (let i = 0; i < colsLength; i++) {
 	const head = document.createElement("div");
 	head.innerHTML = cols[i];
 	head.dataset.head = cols[i];
 	head.dataset.filter = "";
-	head.title = cols[i]+" (click to filter)";
+	head.title = cols[i];
 	head.classList.add("header");
 	head.tabIndex=0;
 	head.addEventListener("click",async(e)=>{if(head.dataset["select"]!="true"){
@@ -473,21 +476,7 @@ for (let i = 0; i < cols.length; i++) {
 	}else if(head.dataset["select"]=="true"){
 		e.preventDefault();
 		head.dataset["select"]="false";
-		let filter = await formWindow({title:"Filter: "+cols[i],form:[{id:"filter",type:"text",value:head.dataset["filter"]}]});
-		if(filter["status"]=="success"){
-			let el = document.querySelectorAll("#content > .data > [data-cols="+cols[i]+"]")
-			let text = filter["data"]["filter"]
-			let re = new RegExp(text,"i")
-			for(let e = 0; e < el.length; e++) {
-				let row = document.querySelectorAll("#content > .data > [data-row='"+el[e].dataset.row+"']");
-				if(el[e].dataset["colsdata"].search(re)<0){
-					row.forEach(e => {e.style.display="none"})
-				}else{row.forEach(e => {e.style.display=""})}
-			}
-			document.querySelectorAll("#content > .header > .header").forEach(e=>{e.dataset["filter"]="";e.innerHTML=e.dataset.head;});
-			if(filter["data"]["filter"]!=""){head.dataset.filter=text;head.innerHTML = cols[i]+' (filter: "'+text+'")'}else{head.innerHTML = cols[i]}
-		}
-		}});
+	}});
 	let cc = []
 	for (let j=0; j<colsAll.length; j++) {
 		for (const s of ["asc","desc"]){
@@ -512,7 +501,7 @@ for (let i = 0; i < cols.length; i++) {
 const dataSec = document.createElement("div");
 dataSec.classList.add("data");
 con.append(dataSec);
-dataLen = Array.from({length: cols.length},()=>0);
+dataLen = Array.from({length: colsLength},()=>0);
 const dataLoad = new IntersectionObserver(entries => {
 	entries.forEach(entry => {entry.target.style.visibility = entry.isIntersecting ? 'visible' : 'hidden'});
 }, {
@@ -520,9 +509,10 @@ const dataLoad = new IntersectionObserver(entries => {
 	rootMargin: '100%',
 	threshold: 0
 });
+const dataLength = arg["data"].length;
 for (let i=0; i<arg["data"].length; i++) {
 	const url = new URL(location);
-	for (let d = 0; d < cols.length; d++) {
+	for (let d = 0; d < colsLength; d++) {
 		if(arg["data"][i][cols[d]]==null){arg["data"][i][cols[d]]=""}
 		dataLen[d] = dataLen[d] + (arg["data"][i][cols[d]].toString().length>dataLenMin?arg["data"][i][cols[d]].toString().length:dataLenMin);
 		dataLenNormal = false;
@@ -583,6 +573,8 @@ for (let i=0; i<arg["data"].length; i++) {
 		dataSec.append(dataCol);
 		dataLoad.observe(dataCol);
 	}
+	document.querySelector("#contentBar>#sort").onclick=()=>{sort({data:arg.data,link:arg.link,action:arg.action})};
+	document.querySelector("#contentBar>#filter").onclick=()=>{filter({data:arg.data,link:arg.link,action:arg.action})};
 }
 const dataScroll = document.createElement("div");
 const dataScroller = document.createElement("div");
@@ -900,6 +892,87 @@ if(progressNo.length > 0){
 	bottomPrg.classList.add("empty");
 }
 }
+async function sort(table){
+let head = Object.keys(mikan.tableData["0"]).filter(e=>e.toLowerCase()!="action");
+let sortOld = {};
+let formSort = [];
+for(let h=0;h<head.length;h++){
+	formSort.push({
+		id: head[h],
+		type: "select",
+		value: (mikan.sortLast.includes(head[h])&&mikan.sort[head[h]]=="desc") ? "desc,asc" : "asc,desc",
+		name: head[h]
+	})
+	sortOld[head[h]] = (mikan.sortLast.includes(head[h])&&mikan.sort[head[h]]=="desc") ? "desc" : "asc";
+}
+let form = await formWindow({
+	title: "Sort by",
+	id: "sortdata",
+	form: formSort
+});
+if(form["status"]=="success"){
+	const data = form["data"];
+	for(let h=0; h<head.length; h++){
+		if(data[head[h]]!=sortOld[head[h]]){
+			if(mikan.sortLast.includes(head[h])){mikan.sortLast.splice(mikan.sortLast.indexOf(head[h]),1)}
+			mikan.sortLast.unshift(head[h]);
+			mikan.sort[head[h]]=data[head[h]];
+			displayTable(table);
+		}
+	}
+}
+}
+async function filter(){
+const head = Object.keys(mikan.tableData["0"]).filter(e=>e.toLowerCase()!="action");
+const filterListOld = Object.keys(mikan.filter);
+const key = [];
+const cols = [];
+for(let v of head){
+	if(v.includes("provider")){key.push(v);cols.push(v)}
+	else if(v.includes("id")){key.push(v)}
+	else{cols.push(v)}
+}
+const dataList = document.querySelectorAll("#content > .data > *");
+const dataListFCol = document.querySelectorAll("#content > .data > *[data-cols="+cols[0]+"]");
+let formFilter = [];
+for(let h=0;h<head.length;h++){
+	formFilter.push({
+		id: head[h],
+		type: "text",
+		value: filterListOld.includes(head[h]) ? mikan.filter[head[h]] : "",
+		name: head[h]
+	})
+}
+let form = await formWindow({
+	title: "Filter",
+	id: "filterdata",
+	form: formFilter
+});
+if(form["status"]=="success"){
+	const data = Object.fromEntries(Object.entries(form["data"]).filter(([, v]) => v!==""));
+	mikan.filter = data;
+	const filterList = Object.keys(data);
+	let rowIn = [];
+	for(let d=0;d<dataList.length;d++){
+		if(filterList.length<1){dataList[d].style.display="";continue;}
+		for(let f=0;f<filterList.length;f++){
+			const re = new RegExp(data[filterList[f]],"i");console.log(cols.includes(filterList[f])&&dataList[d].dataset.colsdata.search(re)<0&&dataList[d].dataset.cols==filterList[f]);
+			if(key.includes(filterList[f])&&dataList[d].dataset[filterList[f]].search(re)>=0&&dataList[d].dataset.cols==cols[0]){
+				dataList[d].parentNode.querySelectorAll("[data-row='"+dataList[d].dataset["row"]+"']").forEach(e=>{e.style.display=""});
+				rowIn.push(dataList[d].dataset["row"]);
+			}
+			else if(cols.includes(filterList[f])&&dataList[d].dataset.colsdata.search(re)>=0&&dataList[d].dataset.cols==filterList[f]){
+				dataList[d].parentNode.querySelectorAll("[data-row='"+dataList[d].dataset["row"]+"']").forEach(e=>{e.style.display=""});
+				rowIn.push(dataList[d].dataset["row"]);
+			}
+			else if(!(rowIn.includes(dataList[d].dataset.row))){dataList[d].style.display="none";}
+		}
+	}
+} else{
+	mikan.filter = {};
+	dataList.forEach(e=>e.style.display="");
+}
+}
 async function contextMenu(arg){
 let def = {
 	id: "",
@@ -1115,6 +1188,7 @@ return suc("[checkArg] sucess",input)
 mikan={};
 mikan.sort={chapter:"asc",name:"asc"};
 mikan.sortLast=["chapter","name"];
+mikan.filter={};
 mikan.progress={};
 mikan.login=false;
 mikan.debug=false;
@@ -1148,15 +1222,13 @@ document.querySelectorAll("nav > button").forEach(n => {
 	url.searchParams.set("value", "");
 	n.addEventListener("click",()=>{history.pushState({page:n.value,value:""}, "", url);checkPage()})
 });
-document.querySelector("#login").addEventListener('click', async () => {
+document.querySelector("#login").addEventListener("click", async () => {
 	const info = await formWindow({title:"Login", form:[{id:"username",type:"text",name:"username"},{id:"password",type:"password",name:"password"}]})
 	if(info["status"]=="success"){
 		login({username:info["data"]["username"],password:info["data"]["password"]},)
 	}
 });
-document.querySelector("#logout").addEventListener('click', async () => {
-	logout()
-});
+document.querySelector("#logout").addEventListener("click", logout);
 window.addEventListener('popstate', checkPage);
 log("script loaded");
 checklogin1st();
