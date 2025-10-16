@@ -956,7 +956,7 @@ if(form["status"]=="success"){
 	for(let d=0;d<dataList.length;d++){
 		if(filterList.length<1){dataList[d].style.display="";continue;}
 		for(let f=0;f<filterList.length;f++){
-			const re = new RegExp(data[filterList[f]],"i");console.log(cols.includes(filterList[f])&&dataList[d].dataset.colsdata.search(re)<0&&dataList[d].dataset.cols==filterList[f]);
+			const re = new RegExp(data[filterList[f]],"i");
 			if(key.includes(filterList[f])&&dataList[d].dataset[filterList[f]].search(re)>=0&&dataList[d].dataset.cols==cols[0]){
 				dataList[d].parentNode.querySelectorAll("[data-row='"+dataList[d].dataset["row"]+"']").forEach(e=>{e.style.display=""});
 				rowIn.push(dataList[d].dataset["row"]);

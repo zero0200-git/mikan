@@ -209,8 +209,11 @@ def logged(*value):
 	logLocDir = scriptLocation+"/log"
 	logLoc = logLocDir+"/"+datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d')+".log"
 	os.makedirs(logLocDir,exist_ok=True)
-	with open(logLoc, "a") as file:
-		file.write(text+"\n")
+	try:
+		with open(logLoc, "a") as file:
+			file.write(text+"\n")
+	except Exception as e:
+		print(f"Error writing log to {logLoc}: {e}")
 
 def checkArg(arg):
 	data = {
