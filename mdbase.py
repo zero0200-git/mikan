@@ -491,7 +491,7 @@ url = {
 }
 provider = url.keys()
 headers = {
-	'User-Agent': f'mikan/1.1.0; ({sys.platform})'
+	'User-Agent': f'mikan/1.2.0; ({sys.platform})'
 }
 headersPost = headers.copy()
 headersPost.update({
