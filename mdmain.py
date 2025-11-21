@@ -9,11 +9,12 @@ import urllib.request
 import traceback
 from datetime import datetime
 from functools import lru_cache, wraps
-from mdbase import config,url,headers,headersPost,progress,logged,settings,checkArg,provider,queryDB,insereplaceDB,updateDB
+from mdbase import config, deleteDB, url, headers, headersPost, progress, logged, settings, checkArg, provider, queryDB, insereplaceDB, updateDB, dbLock, dbUnlock, set_queue_stop, isQueueStop
 
 class MDMain:
 	def __init__(self):
 		self.web = False
+		self.runningQueue = False
 
 	def __getattribute__(self, name):
 		attr = super().__getattribute__(name)
@@ -184,7 +185,7 @@ class MDMain:
 
 		return re
 
-	def knownGroupsset(self,value):
+	def knownGroupsSet(self,value):
 		groupid = value.split("mark")[0]
 		mark = value.split("mark")[1][0:-1]
 		markVal = value.split("mark")[1][-1]
@@ -335,7 +336,6 @@ class MDMain:
 		status=""
 		self.logged(f"Adding: {id}")
 
-		
 		authordb = queryDB(select=["id"],table=["author"],where={"id":args["id"]})
 		if len(authordb) > 0 and args["id"] == authordb[0]["id"]:
 			status="Already added"
@@ -427,6 +427,11 @@ class MDMain:
 					"var":"id",
 					"type":str,
 					"req":True
+				},
+				{
+					"var":"toqueue",
+					"type":str,
+					"def":settings["AutoQueue"],
 				}
 			]
 		})
@@ -436,15 +441,26 @@ class MDMain:
 		id = args["id"]
 		natsort = lambda s: [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', s or '')]
 		
-		serieDB = queryDB(select=["id","name","h"],table=["series"],where={"id":id})
-		if args["provider"] in provider and len(serieDB) > 0 and id == serieDB[0]["id"]:
+		serieDB = queryDB(select=["id","name","forceName","h","source"],table=["series"],where={"id":id,"source":args["provider"]})
+		if len(serieDB) > 0 and id == serieDB[0]["id"]:
+			progressInfo = {
+				"id": id,
+				"name": serieDB[0]["name"] if serieDB[0]["forceName"]==None or serieDB[0]["forceName"]=="" else serieDB[0]["forceName"],
+				"parent": serieDB[0]["id"],
+				"provider": serieDB[0]["source"],
+				"type": "info",
+				"status": "downloading",
+				"statusText": "getting serie info",
+				"progress": "0",
+				"subprogress": "100"
+			}
+			progress.updatelist(progressInfo)
 			igGroup = {g["id"] for g in queryDB(select=["id"],table=["tgroup"],where={"ignore":"1"})}
 			fkGroup = {g["id"] for g in queryDB(select=["id"],table=["tgroup"],where={"fake":"1"})}
 			lang = settings["languages"].split(",")
 			location = settings["saveHDir"] if serieDB[0]["h"] else settings["saveDir"]
 			format = settings["hSaveName"] if serieDB[0]["h"] else settings["saveName"]
 			dataSerie = self.getSerieInfo({"id":id,"provider":args["provider"]})
-			progress.update(id, {"status": "getting chapter info", "progress": "0", "subprogress": "0"})
 			manga = []
 			mangaVol = {}
 			allChapter = []
@@ -452,12 +468,26 @@ class MDMain:
 			alchplimit = 100
 			alchpoffset = 0
 			alchppage = 1
+			alchptotal = "0"
+			progressInfo.update({
+				"name": dataSerie["serie"],
+				"subprogress": "100",
+				"progress": "20",
+			})
+			progress.updatelist(progressInfo)
 
 			if args["provider"] == "mangadex":
 				langStr = ("translatedLanguage[]=" if len(lang)>0 else "") + "&translatedLanguage[]=".join(lang)
 				while alchp == False:
 					r = self.request(f"{url["mangadex"]["api"]}/manga/{id}/feed?limit={alchplimit}&offset={alchpoffset}&{langStr}&includes[]=scanlation_group&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=safe&contentRating[]=erotica&contentRating[]=pornographic")
 					chp = r["json"]
+					alchptotal = chp["total"] if "total" in chp else "0"
+					progressInfo.update({
+						"statusText": f"getting chapter list ({len(allChapter)+1}/{alchptotal})",
+						"subprogress": str(round((len(allChapter)/alchptotal)*100,2)),
+						"progress": str(round(((len(allChapter)/alchptotal)*40)+20,2)),
+					})
+					progress.updatelist(progressInfo)
 					allChapter.extend([{
 							"id":c['id'], 
 							"volume":c["attributes"]["volume"], 
@@ -472,13 +502,19 @@ class MDMain:
 						alchp = True
 					else:
 						alchpoffset=alchplimit+alchpoffset
-					progress.update(id, {"status": "getting chapter info", "progress": str(round((len(allChapter)/chp["total"])*100,2)), "subprogress": "0"})
 					time.sleep(1)
 			elif args["provider"] == "comick":
 				langStr = ",".join(lang)
 				while alchp == False:
 					r = self.request(f"{url["comick"]["api"]}/comic/{dataSerie["hid"]}/chapters?limit={alchplimit}&page={alchppage}&lang={langStr}&chap-order=1")
 					chp = r["json"]
+					alchptotal = chp["total"] if "total" in chp else "0"
+					progressInfo.update({
+						"statusText": f"getting chapter list ({len(allChapter)+1}/{alchptotal})",
+						"subprogress": str(round((len(allChapter)/alchptotal)*100,2)),
+						"progress": str(round(((len(allChapter)/alchptotal)*40)+20,2)),
+					})
+					progress.updatelist(progressInfo)
 					allChapter.extend([{
 							"id":c['hid'], 
 							"volume":c["vol"], 
@@ -493,13 +529,18 @@ class MDMain:
 						alchp = True
 					else:
 						alchppage=alchppage+1
-					progress.update(id, {"status": "getting chapter info", "progress": str(round((len(allChapter)/chp["total"])*100,2)), "subprogress": "0"})
 					time.sleep(1)
 
 			for i,chp in enumerate(allChapter, start=1):
-				progress.update(id, {"status": f"parse chapter info {i}/{len(allChapter)}", "progress": str(round((i/len(allChapter))*100,2)), "subprogress": "0"})
+				progressInfo.update({
+					"statusText": f"getting chapter info ({i+1}/{alchptotal})",
+					"subprogress": str(round((i/len(allChapter))*100,2)),
+					"progress": str(round(((i/len(allChapter))*40)+60,2)),
+				})
+				progress.updatelist(progressInfo)
 				data = {}
 				data["id"] = chp["id"]
+				data["serie_id"] = dataSerie["id"]
 				data["serie"] = dataSerie["serie"]
 				data["volume"] = chp["volume"]
 				data["chapter"] = chp["chapter"]
@@ -533,11 +574,37 @@ class MDMain:
 						p["data"]["downloaded"] = True
 					elif len(chp) > 0 and p["data"]["id"] == chp[0]["id"] and chp[0]["got"] == False:
 						p["data"]["downloaded"] = False
+						if args["toqueue"] == "yes":
+							progressInfoChapter = progressInfo.copy()
+							progressInfoChapter.update({
+								"id": chp[0]["id"],
+								"status": "pending",
+								"statusText": f"pending to download chapter {p["data"]["chapter"]}",
+								"subprogress": "0",
+								"progress": "0",
+							})
+							progress.updatelist(progressInfoChapter)
 					else:
 						p["data"]["downloaded"] = False
 						insereplaceDB(table=["chapter"], values={"id":p["data"]["id"], "series":dataSerie["id"], "title":p["data"]["title"] if p["data"]["title"] is not None else "", "volume":p["data"]["volume"] if p["data"]["volume"] is not None else "", "chapter":p["data"]["chapter"], "tgroup":p["data"]["groupid"] if "groupid" in p["data"] else "", "language":p["data"]["lang_short"], "time":datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "got":"0"})
+						if args["toqueue"] == "yes":
+							progressInfoChapter = progressInfo.copy()
+							progressInfoChapter.update({
+								"id": chp[0]["id"],
+								"status": "pending",
+								"statusText": f"pending to download chapter {p["data"]["chapter"]}",
+								"subprogress": "0",
+								"progress": "0",
+							})
+							progress.updatelist(progressInfoChapter)
 					manga.append(p)
-			progress.update(id, {"status": "got all chapter info", "progress": "100", "subprogress": "100"})
+			progressInfo.update({
+				"status": "done",
+				"statusText": "get all chapter info success",
+				"subprogress": "100",
+				"progress": "100",
+			})
+			progress.updatelist(progressInfo)
 			return 1
 		else:
 			self.logged("Not valid id/provider or not added")
@@ -559,84 +626,28 @@ class MDMain:
 
 		id = args["id"]
 
-		mangadb = queryDB(select=["id","title","chapter","volume","tgroup","language","time","got"],table=["chapter"],where={"series":id})
-		seriedb = queryDB(select=["source","h"],table=["series"],where={"id":id})
-		serie = {}
+		mangadb = queryDB(select=["id","title","got"],table=["chapter"],where={"series":id})
+		seriedb = queryDB(select=["id","name","forceName","source","h"],table=["series"],where={"id":id})
 		if len(seriedb) > 0:
-			if seriedb[0]["source"] != "" and seriedb[0]["source"] in provider:
-				serie = self.getSerieInfo({"id":id,"provider":seriedb[0]["source"]})
-			else:
-				serie = self.getSerieInfo({"id":id,"provider":"mangadex"})
-			location = settings["saveHDir"] if seriedb[0]["h"]==True else settings["saveDir"]
-			format = settings["hSaveName"] if seriedb[0]["h"]==True else settings["saveName"]
-			progress.update(id, {"status": "downloading", "progress": "0", "subprogress": "0"})
-			for i,m in enumerate(mangadb, start=1):
-				progress.update(id, {"status": f"downloading {i}/{len(mangadb)}", "progress": str(round((i/len(mangadb))*100,2)), "subprogress": "0"})
-				if m["got"] == False:
-					if serie["provider"] == "mangadex":
-						r = self.request(f"{url["mangadex"]["api"]}/at-home/server/{m["id"]}")
-						chp = r["json"]
-						m["serie"] = serie["serie"]
-						g = queryDB(select=["name"],table=["tgroup"],where={"id":m["tgroup"]})
-						m["group"] = g[0]["name"] if g and g[0]["name"] != None else ""
-						m["authors_artists"] = ",".join(serie["author"] + serie["artist"])
-						m["volume"] = m["volume"] if m["volume"] is not None else "0"
-						m["chapter"] = m["chapter"] if m["chapter"] is not None else "0"
-						m["title"] = m["title"] if m["title"] is not None else ""
-						m["lang_short"] = m["language"]
-						m = {**serie, **m}
-
-						for j,p in enumerate(chp["chapter"]["data"], start=1): 
-							progress.update(id, {"status": f"downloading {i}/{len(mangadb)} page {j}/{len(chp["chapter"]["data"])}", "progress": str(round((i/len(mangadb))*100,2)), "subprogress": str(round((j/len(chp["chapter"]["data"]))*100,2))})
-							m["page"] = str(j)
-							m["extension"] = os.path.splitext(p)[1]
-							m["time"] = datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')
-							r = self.downloadPage(f"{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{p}", self.custom_format(location+format, **m))
-							report = {
-								"url": f"{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{p}",
-								"success": True if r["status"] == 200 else False,
-								"bytes": r["size"] if r["status"] == 200 else 0,
-								"duration": round(r["usedtime"] * 1000),
-								"cached": True if r["status"] == 200 else False
-							}
-							urllib.request.Request("https://api.mangadex.network/report", data=urllib.parse.urlencode(report).encode(), headers=headersPost)
-							if r["status"] != 200:
-								self.logged(f"Download {m["serie"]} - chapter {m['chapter']} failed. (page:{j} url:{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{p})")
-								break
-						else:
-							updateDB(table=["chapter"], values={"got":1}, where={"id":m["id"]})
-							self.logged(f"Download {m["serie"]} - chapter {m['chapter']} success.")
-
-					elif serie["provider"] == "comick":
-						r = self.request(f"{url["comick"]["api"]}/chapter/{m["id"]}/get_images")
-						chp = json.loads(r["data"])
-						m["serie"] = serie["serie"]
-						g = queryDB(select=["name"],table=["tgroup"],where={"id":m["tgroup"]})
-						m["group"] = g[0]["name"] if g and g[0]["name"] != None else ""
-						m["authors_artists"] = ",".join(serie["author"] + serie["artist"])
-						m["volume"] = m["volume"] if m["volume"] is not None else "0"
-						m["chapter"] = m["chapter"] if m["chapter"] is not None else "0"
-						m["title"] = m["title"] if m["title"] is not None else ""
-						m["lang_short"] = m["language"]
-						m = {**serie, **m}
-
-						for j,p in enumerate(chp, start=1): 
-							progress.update(id, {"status": f"downloading {i}/{len(mangadb)} page {j}/{len(chp)}", "progress": str(round((i/len(mangadb))*100,2)), "subprogress": str(round((j/len(chp))*100,2))})
-							m["page"] = str(j)
-							m["extension"] = os.path.splitext(p["b2key"])[1]
-							m["time"] = datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')
-							r = self.downloadPage(f"{url["comick"]["image"]}/{p["b2key"]}", self.custom_format(location+format, **m))
-							if r["status"] != 200:
-								self.logged(f"Download {m["serie"]} - chapter {m['chapter']} failed. (page:{j} url:{url["comick"]["image"]}/{p["b2key"]})")
-								break
-						else:
-							updateDB(table=["chapter"], values={"got":1}, where={"id":m["id"]})
-							self.logged(f"Download {m["serie"]} - chapter {m['chapter']} success.")
-
-				progress.update(id, {"status": f"download {i}/{len(mangadb)}", "progress": str(round((i/len(mangadb))*100,2)), "subprogress": "0"})
-			self.logged(f"Download {serie["serie"]} success.")
-			progress.update(id, {"status": "download all", "progress": "100", "subprogress": "100"})
-			return mangadb
+			for manga in mangadb:
+				if manga["got"] == False:
+					progressInfo = {
+						"id": id,
+						"name": seriedb[0]["name"] if seriedb[0]["forceName"]==None or seriedb[0]["forceName"]=="" else seriedb[0]["forceName"],
+						"parent": seriedb[0]["id"],
+						"provider": seriedb[0]["source"],
+						"type": "download",
+						"status": "pending",
+						"statusText": f"pending to download chapter {manga["title"]}",
+						"progress": "0",
+						"subprogress": "0"
+					}
+					progress.updatelist(progressInfo)
+			self.processQueue()
+			return True
+		else:
+			self.logged("Not valid id/provider or not added")
+			return False
 
 	def downloadPage(self,url,location):
 		out = {}
@@ -817,29 +828,62 @@ class MDMain:
 		if checkInput["status"]=="failed": raise Exception(checkInput["data"]["msg"])
 		args=checkInput["data"]["normal"]
 
-		manga = queryDB(select=["id","source"],table=["series"],where={"id":args["id"]})
-		if manga is False or manga[0]["source"] not in provider:
+		seriedb = queryDB(select=["id","name","forceName","source","h"],table=["series"],where={"id":args["id"]})
+		if seriedb is False or seriedb[0]["source"] not in provider:
 			self.logged(f"Not valid id/provider")
 			return 0
-		if manga and args["id"] == manga[0]["id"]:
-			progress.update(args["id"], {"status": "downloading cover", "progress": 0, "subprogress": 0})
-			data = self.getSerieInfo({"id":args["id"],"provider":manga[0]["source"]})
+		if seriedb and args["id"] == seriedb[0]["id"]:
+			progressInfo = {
+				"id": seriedb[0]["id"],
+				"name": seriedb[0]["name"] if seriedb[0]["forceName"]==None or seriedb[0]["forceName"]=="" else seriedb[0]["forceName"],
+				"parent": seriedb[0]["id"],
+				"provider": seriedb[0]["source"],
+				"type": "cover",
+				"status": "downloading",
+				"statusText": "downloading cover",
+				"progress": "0",
+				"subprogress": "0"
+			}
+			progress.updatelist(progressInfo)
+			data = self.getSerieInfo({"id":args["id"],"provider":seriedb[0]["source"]})
+			progressInfo.update({
+				"statusText": "downloaded cover",
+				"progress": "30",
+				"subprogress": "100",
+			})
+			progress.updatelist(progressInfo)
 			data["extension"] = data["cover_extension"]
 			data["artist"] = data["artist_string"]
 			data["author"] = data["author_string"]
-			progress.update(args["id"], {"status": "downloaded cover", "progress": 30, "subprogress": 100})
 
-			progress.update(args["id"], {"status": "saving cover to db", "progress": 40, "subprogress": 0})
+
+			progressInfo.update({
+				"status": "saving",
+				"statusText": "saving cover to db",
+				"progress": "40",
+				"subprogress": "0",
+			})
+			progress.updatelist(progressInfo)
 			updateDB(values={"imageName":data["cover_id"], "image":data["cover"]},table=["series"],where={"id":data["id"]})
-			progress.update(args["id"], {"status": "saved cover to db", "progress": 60, "subprogress": 100})
+			progressInfo.update({
+				"status": "saving" if settings["saveCover"]=="yes" else "done",
+				"statusText": "saved cover to db",
+				"progress": "60" if settings["saveCover"]=="yes" else "100",
+				"subprogress": "100",
+			})
+			progress.updatelist(progressInfo)
 
 			if settings["saveCover"] == "yes":
-				progress.update(args["id"], {"status": "saving cover to file", "progress": 80, "subprogress": 0})
+				progressInfo.update({
+					"statusText": "saving cover to file",
+					"progress": "80",
+					"subprogress": "0",
+				})
+				progress.updatelist(progressInfo)
 				format = settings["coverDir"]
 				lo = settings["saveDir"]
 
-				h = queryDB(select=["h"],table=["series"],where={"id":args["id"]})
-				if h and h[0]["h"] == "1":
+				if seriedb[0]["h"] == "1":
 					format = settings["coverHDir"]
 					lo = settings["saveHDir"]
 				lo = self.custom_format(lo+format, **data)
@@ -848,11 +892,14 @@ class MDMain:
 				with open(lo, "wb") as file:
 					file.write(data["cover"])
 				self.logged(f"Cover saved as {lo}")
-				progress.update(args["id"], {"status": "saved cover to file", "progress": 100, "subprogress": 100})
-
-				return 1
-			else:
-				return 0
+				progressInfo.update({
+					"status": "done",
+					"statusText": "saved cover to file",
+					"progress": "100",
+					"subprogress": "100",
+				})
+				progress.updatelist(progressInfo)
+			return 1
 		else:
 			return 0
 
@@ -891,7 +938,7 @@ class MDMain:
 			fname = queryDB(select=["forceName","name"],table=["series"],where={"id":args["id"]})
 			if fname and fname[0]["name"] != out["serie_original"]:
 				updateDB(values={"name":out["serie_original"]},table=["series"],where={"id":args["id"]})
-				logged(f"Change serie name from \"{fname[1]}\" to \"{out["serie_original"]}\"")
+				logged(f"Change serie name from \"{fname[0]["name"]}\" to \"{out["serie_original"]}\"")
 			if fname and fname[0]["forceName"] != None:
 				out["serie"] = fname[0]["forceName"]
 				out["serie_force"] = fname[0]["forceName"]
@@ -1003,69 +1050,145 @@ class MDMain:
 		chapterdb = queryDB(select=["series","id","title","chapter","volume","tgroup","language","time","got"],table=["chapter"],where={"id":id})
 		seriedb = queryDB(select=["id","name","forceName","author","artist","h","source"],table=["series"],where={"id":chapterdb[0]["series"]})
 		if chapterdb and chapterdb[0]["id"] == id and seriedb and seriedb[0]["id"] == chapterdb[0]["series"] and seriedb[0]["source"] in provider:
-			if seriedb[0]["source"] in provider:
-				location = settings["saveHDir"] if seriedb[0]["h"]==True else settings["saveDir"]
-				format = settings["hSaveName"] if seriedb[0]["h"]==True else settings["saveName"]
-				chapter = {}
-				chapter["provider"] = seriedb[0]["source"]
-				chapter["author"] = ",".join([a["name"] for a in queryDB(select=["name"],table=["author"],where={"id":seriedb[0]["author"].split(",")})]) if seriedb[0]["author"] != "" else ""
-				chapter["artist"] = ",".join([a["name"] for a in queryDB(select=["name"],table=["author"],where={"id":seriedb[0]["artist"].split(",")})]) if seriedb[0]["artist"] != "" else ""
-				chapter["authors_artists"] = ",".join(filter(None, [chapter["author"], chapter["artist"]]))
-				chapter["serie_original"] = seriedb[0]["name"]
-				chapter["serie_force"] = seriedb[0]["forceName"] if seriedb[0]["forceName"] != None else ""
-				chapter["serie"] = seriedb[0]["name"] if seriedb[0]["forceName"] == None else seriedb[0]["forceName"]
-				chapter["volume"] = chapterdb[0]["volume"] if chapterdb[0]["volume"] is not None else "0"
-				chapter["chapter"] = chapterdb[0]["chapter"] if chapterdb[0]["chapter"] is not None else "0"
-				chapter["title"] = chapterdb[0]["title"] if chapterdb[0]["title"] is not None else ""
-				chapter["lang_short"] = chapterdb[0]["language"]
-				
-				if chapter["provider"] == "mangadex":
-					r = self.request(f"{url["mangadex"]["api"]}/at-home/server/{chapterdb[0]["id"]}")
-					if r["status"]!=200 or r["json"]["result"]!="ok" or "chapter" not in r["json"]:
-						progress.update(chapterdb[0]["series"], {"status": f"failed to download {chapter['title'] if chapter["title"] is not "" else chapter['chapter']} (no data)", "progress": "100", "subprogress": "100"})
-						self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} failed. (no chapter data)")
-						return 0
-					chp = r["json"]
-					for j,p in enumerate(chp["chapter"]["data"], start=1):
-						progress.update(chapterdb[0]["series"], {"status": f"downloading chapter {chapter['chapter']} page {j}/{len(chp['chapter']['data'])}", "progress": "0", "subprogress": str(round((j/len(chp['chapter']['data']))*100,2))})
-						chapter["page"] = str(j)
-						chapter["extension"] = os.path.splitext(p)[1]
-						chapter["time"] = datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')
-						r = self.downloadPage(f"{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{p}", self.custom_format(location+format, **chapter))
-						report = {
-							"url": f"{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{p}",
-							"success": True if r["status"] == 200 else False,
-							"bytes": r["size"],
-							"duration": round(r["usedtime"] * 1000),
-							"cached": True if r["status"] == 200 else False
-						}
-						urllib.request.Request("https://api.mangadex.network/report", data=urllib.parse.urlencode(report).encode(), headers=headersPost)
-						if r["status"] != 200:
-							self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} failed. (page:{j} url:{chp['baseUrl']}/data/{chp['chapter']['hash']}/{p})")
-							break
-					else:
-						updateDB(table=["chapter"], values={"got":1}, where={"id":chapterdb[0]["id"]})
-						self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} success.")
-						progress.update(chapterdb[0]["series"], {"status": f"download chapter {chapter['title'] if chapter["title"] is not "" else chapter['chapter']}", "progress": "100", "subprogress": "100"})
-						return 1
-				
-				elif chapter["provider"] == "comick":
-					r = self.request(f"{url["comick"]["api"]}/chapter/{chapterdb[0]["id"]}/get_images")
-					chp = r["json"]
-					for j,p in enumerate(chp, start=1):
-						progress.update(chapterdb[0]["series"], {"status": f"downloading chapter {chapter['title'] if chapter["title"] is not "" else chapter['chapter']} page {j}/{len(chp)}", "progress": "0", "subprogress": str(round((j/len(chp))*100,2))})
-						chapter["page"] = str(j)
-						chapter["extension"] = os.path.splitext(p["b2key"])[1]
-						chapter["time"] = datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')
-						r = self.downloadPage(f"{url["comick"]["image"]}/{p["b2key"]}", self.custom_format(location+format, **chapter))
-						if r["status"] != 200:
-							self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} failed. (page:{j} url:{url['comick']['image']}/{p['b2key']})")
-							break
-					else:
-						updateDB(table=["chapter"], values={"got":1}, where={"id":chapterdb[0]["id"]})
-						self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} success.")
-						progress.update(chapterdb[0]["series"], {"status": f"download chapter {chapter['title'] if chapter["title"] is not "" else chapter['chapter']}", "progress": "100", "subprogress": "100"})
-						return 1
+			progressInfo = {
+				"id": chapterdb[0]["id"],
+				"name": seriedb[0]["name"] if seriedb[0]["forceName"]==None or seriedb[0]["forceName"]=="" else seriedb[0]["forceName"],
+				"parent": seriedb[0]["id"],
+				"provider": seriedb[0]["source"],
+				"type": "download",
+				"status": "downloading",
+				"statusText": f"getting chapter {chapterdb[0]['title']} info",
+				"progress": "0",
+				"subprogress": "0"
+			}
+			progress.updatelist(progressInfo)
+			location = settings["saveHDir"] if seriedb[0]["h"]==True else settings["saveDir"]
+			format = settings["hSaveName"] if seriedb[0]["h"]==True else settings["saveName"]
+			chapter = {}
+			chapter["provider"] = seriedb[0]["source"]
+			chapter["author"] = ",".join([a["name"] for a in queryDB(select=["name"],table=["author"],where={"id":seriedb[0]["author"].split(",")})]) if seriedb[0]["author"] != "" else ""
+			chapter["artist"] = ",".join([a["name"] for a in queryDB(select=["name"],table=["author"],where={"id":seriedb[0]["artist"].split(",")})]) if seriedb[0]["artist"] != "" else ""
+			chapter["group"] = ",".join(g["name"] for g in queryDB(select=["name"],table=["tgroup"],where={"id":chapterdb[0]["tgroup"].split(",")},whereopt="or")) if chapterdb[0]["tgroup"] != "" else ""
+			chapter["authors_artists"] = ",".join(filter(None, [chapter["author"], chapter["artist"]]))
+			chapter["serie_original"] = seriedb[0]["name"]
+			chapter["serie_force"] = seriedb[0]["forceName"] if seriedb[0]["forceName"] != None else ""
+			chapter["serie"] = seriedb[0]["name"] if seriedb[0]["forceName"] == None else seriedb[0]["forceName"]
+			chapter["serie_id"] = seriedb[0]["id"] if seriedb[0]["id"] is not None else ""
+			chapter["volume"] = chapterdb[0]["volume"] if chapterdb[0]["volume"] is not None else "0"
+			chapter["chapter"] = chapterdb[0]["chapter"] if chapterdb[0]["chapter"] is not None else "0"
+			chapter["title"] = chapterdb[0]["title"] if chapterdb[0]["title"] is not None else ""
+			chapter["lang_short"] = chapterdb[0]["language"]
+			
+			if chapter["provider"] == "mangadex":
+				progressInfo.update({
+					"statusText": f"downloading {chapter['title']} info",
+					"progress": "20",
+					"subprogress": "100"
+				})
+				progress.updatelist(progressInfo)
+				r = self.request(f"{url["mangadex"]["api"]}/at-home/server/{chapterdb[0]["id"]}")
+				if r["status"]!=200 or r["json"]["result"]!="ok" or "chapter" not in r["json"]:
+					self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} failed. (no data)")
+					progressInfo.update({
+						"status": "failed",
+						"statusText": f"failed to download {chapter['title']} (no data)",
+						"progress": "100",
+						"subprogress": "100"
+					})
+					progress.updatelist(progressInfo)
+					return 0
+				chp = r["json"]
+				for j,p in enumerate(chp["chapter"]["data"], start=1):
+					progressInfo.update({
+						"statusText": f"downloading chapter {chapter['title']} page {j}/{len(chp['chapter']['data'])}",
+						"progress": str(round((j/len(chp['chapter']['data']))*80+20,2)),
+						"subprogress": str(round((j/len(chp['chapter']['data']))*100,2))
+					})
+					progress.updatelist(progressInfo)
+					chapter["page"] = str(j)
+					chapter["extension"] = os.path.splitext(p)[1]
+					chapter["time"] = datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')
+					r = self.downloadPage(f"{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{p}", self.custom_format(location+format, **chapter))
+					report = {
+						"url": f"{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{p}",
+						"success": True if r["status"] == 200 else False,
+						"bytes": r["size"],
+						"duration": round(r["usedtime"] * 1000),
+						"cached": True if r["status"] == 200 else False
+					}
+					urllib.request.Request("https://api.mangadex.network/report", data=urllib.parse.urlencode(report).encode(), headers=headersPost)
+					if r["status"] != 200:
+						self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} failed. (page:{j} url:{chp['baseUrl']}/data/{chp['chapter']['hash']}/{p})")
+						progressInfo.update({
+							"status": "failed",
+							"statusText": f"download chapter {chapter['title']} failed (page:{j})",
+							"progress": "100",
+						})
+						progress.updatelist(progressInfo)
+						break
+				else:
+					updateDB(table=["chapter"], values={"got":1}, where={"id":chapterdb[0]["id"]})
+					self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} success.")
+					progressInfo.update({
+						"status": "done",
+						"statusText": f"download chapter {chapter['title']} success",
+						"progress": "100",
+						"subprogress": "100"
+					})
+					progress.updatelist(progressInfo)
+					return 1
+				return 0
+			
+			elif chapter["provider"] == "comick":
+				progressInfo.update({
+					"statusText": f"downloading {chapter['title']} info",
+					"progress": "20",
+					"subprogress": "100"
+				})
+				progress.updatelist(progressInfo)
+				r = self.request(f"{url["comick"]["api"]}/chapter/{chapterdb[0]["id"]}/get_images")
+				if r["status"]!=200:
+					self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} failed. (no data)")
+					progressInfo.update({
+						"status": "failed",
+						"statusText": f"failed to download {chapter['title']} (no data)",
+						"progress": "100",
+						"subprogress": "100"
+					})
+					progress.updatelist(progressInfo)
+					return 0
+				chp = r["json"]
+				for j,p in enumerate(chp, start=1):
+					progressInfo.update({
+						"statusText": f"downloading chapter {chapter['title']} page {j}/{len(chp['chapter']['data'])}",
+						"progress": str(round((j/len(chp['chapter']['data']))*80+20,2)),
+						"subprogress": str(round((j/len(chp['chapter']['data']))*100,2))
+					})
+					progress.updatelist(progressInfo)
+					chapter["page"] = str(j)
+					chapter["extension"] = os.path.splitext(p["b2key"])[1]
+					chapter["time"] = datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')
+					r = self.downloadPage(f"{url["comick"]["image"]}/{p["b2key"]}", self.custom_format(location+format, **chapter))
+					if r["status"] != 200:
+						self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} failed. (page:{j} url:{url['comick']['image']}/{p['b2key']})")
+						progressInfo.update({
+							"status": "failed",
+							"statusText": f"download chapter {chapter['title']} failed (page:{j})",
+							"progress": "100",
+						})
+						progress.updatelist(progressInfo)
+						break
+				else:
+					updateDB(table=["chapter"], values={"got":1}, where={"id":chapterdb[0]["id"]})
+					self.logged(f"Download {chapter['serie']} - chapter {chapter['chapter']} success.")
+					progressInfo.update({
+						"status": "done",
+						"statusText": f"download chapter {chapter['title']} success",
+						"progress": "100",
+						"subprogress": "100"
+					})
+					progress.updatelist(progressInfo)
+					return 1
 		elif not chapterdb:
 			self.logged(f"Not valid chapter id")
 		elif not seriedb:
@@ -1074,4 +1197,60 @@ class MDMain:
 			self.logged(f"Not valid provider")
 		return 0
 
+	def clearCache(self):
+		self.logged("Clearing request cache")
+		self.request.cache_clear()
+		return 1
+
+	def clearQueue(self):
+		self.logged("Clearing queue")
+		progress.clear()
+		deleteDB(table=["queue"],where={"status":["pending","downloading","done"]},whereopt="or")
+		return 1
+
+	def clearDoneQueue(self):
+		self.logged("Clearing done queue")
+		progress.clearDone()
+		deleteDB(table=["queue"],where={"status":"done"})
+		return 1
+
+	def processQueue(self):
+		if not dbLock("queueprocess") or self.runningQueue:
+			self.logged("Queue process already running in another instance, skipping...")
+			return False
+
+		set_queue_stop(False)
+
+		def heartbeat():
+			import time
+			while self.runningQueue:
+				updateDB(values={"timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")}, table=["locks"], where={"id":"queueprocess", "type":"queue", "pid":os.getpid()})
+				time.sleep(300)
+
+		try:
+			self.runningQueue = True
+			hbt = threading.Thread(target=heartbeat, daemon=True)
+			hbt.start()
+			self.logged("Starting queue process...")
+			queued = queryDB(select=["id","parent","type","status","statusText"],table=["queue"], where={"status":"pending"})
+			
+			for q in queued:
+				if isQueueStop():
+					self.logged("Queue process stopped by external signal")
+					break
+
+				if q["type"] == "chapter":
+					self.downloadChapter({"id":q["id"], "serie":q["parent"]})
+
+			self.logged("Queue process complete")
+			return True
+
+		except Exception as e:
+			self.logged(f"Error processing queue: {str(e)}")
+			return False
+		finally:
+			self.runningQueue = False
+			set_queue_stop(False)
+			dbUnlock("queueprocess")
+			return 1
 

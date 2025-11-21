@@ -1,9 +1,26 @@
 # Mikan
-A web GUI manga downloader
+A web GUI manga downloader written in Python using only the standard library
+
+[Source(Github)](https://github.com/zero0200-git/mikan) or [Download](https://github.com/zero0200-git/mikan/archive/refs/heads/main.zip)
+
 <details>
     <summary>Supported Sources</summary>
 
 * ### Mangadex
+</details>
+
+<details>
+    <summary>WebUI Screenshot</summary>
+
+![search page option](/ss/01_add.png "search page option")
+![search page](/ss/02_search.png "search page")
+![series page option](/ss/03_serie-opt.png "series page option")
+![series page filter](/ss/04_serie-filter.png "series page filter")
+![series page sort](/ss/05_series-sort.png "series page sort")
+![progress page](/ss/06_queue.png "progress page")
+![progress page complete](/ss/07_queue-complete.png "progress page complete")
+![settings page](/ss/08_settings.png "settings page")
+
 </details>
 
 ## How to Use

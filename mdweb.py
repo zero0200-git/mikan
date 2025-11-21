@@ -12,7 +12,7 @@ import threading
 import time
 from datetime import datetime
 from urllib.parse import parse_qsl, urlparse, parse_qs, urlsplit
-from mdbase import clients,scriptLocation,config,userList,progress,configFile,logged,checkDB,verifyPassword
+from mdbase import clients,scriptLocation,config,userList,progress,configFile,logged,checkDB,verifyPassword,set_queue_stop
 from mdmain import MDMain
 
 svAddress = config["host"]
@@ -297,7 +297,7 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 		elif "knowngroups" in queryType:
 			responseData["data"] = mdmain.knownGroups()
 		elif "knowngroupsset" in queryType:
-			responseData["data"] = mdmain.knownGroupsset(queryText)
+			responseData["data"] = mdmain.knownGroupsSet(queryText)
 		elif "getsettings" in queryType:
 			responseData["data"] = mdmain.getSettings()
 		elif "updateserie" in queryType:
@@ -311,8 +311,8 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 		elif "updatechapter" in queryType:
 			responseData["data"] = mdmain.getChapterInfoToLestest(queryStr)
 		elif "updateanddllast" in queryType:
-			mdmain.getChapterInfoToLestest(queryStr)
-			responseData["data"] = mdmain.downloadToLestest(queryStr)
+			mdmain.getChapterInfoToLestest({**queryStr, "toqueue":"yes"})
+			responseData["data"] = mdmain.processQueue()
 		elif "updateforcename" in queryType:
 			responseData["data"] = mdmain.setForceName(queryText)
 		elif "updatecover" in queryType:
@@ -327,6 +327,17 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 			responseData = mdmain.getAppBG()
 		elif "progress" in queryType:
 			responseData["data"] = progress.to_dict()
+		elif "processqueue" in queryType:
+			responseData["data"] = mdmain.processQueue()
+		elif "stopqueue" in queryType:
+			set_queue_stop(True)
+			responseData["data"] = {"status": "stop_requested"}
+		elif "clearqueue" in queryType:
+			responseData["data"] = mdmain.clearQueue()
+		elif "cleardonequeue" in queryType:
+			responseData["data"] = mdmain.clearDoneQueue()
+		elif "clearcache" in queryType:
+			responseData["data"] = mdmain.clearCache()
 
 		global lastStatus
 		if "restart" in queryType:
@@ -376,6 +387,7 @@ def start_server():
 		def sendProgress(data):
 			send_message(data,type="progress")
 		progress.send = sendProgress
+		progress.send(progress.to_dict())
 		mdmain = MDMain()
 		mdmain.web = True
 		logged("Server loaded!!!")

@@ -46,16 +46,17 @@ if __name__ == "__main__":
 			config.write(configfile)
 
 		print("\n")
-		userAll = loads(settings["webUser"])
+		userAll = loads(settings["webUser"]) if settings["webUser"] != "" and settings["webUser"] != None and settings["webUser"] != "[]" else {}
+
 		username = input("Please input Username: ")
 		while(username in userAll):
 			force = input("Already have this user, force reset Yes/No(default:No): ")
-			if force == "Yes" or force == "yes" or force == "Y" or force == "y":
+			if force.lower() == "yes" or force.lower() == "y":
 				break
 			else:
 				username = input("Please input Username: ")
 		password = hashPassword(getpass("Please input Password: "))
-		
+
 		userAll[username] = password
 		db = sqlite3.connect(readConfig()["db_location"])
 		db.execute('PRAGMA journal_mode=WAL;')

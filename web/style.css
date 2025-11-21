@@ -110,6 +110,7 @@ header div {
 	border-radius: var(--round);
 	background: var(--backgroundEle);
 	backdrop-filter: blur(var(--blur));
+    display: flex;
 }
 #container > * > .empty{
 	height: 0;
@@ -134,12 +135,10 @@ header div {
 }
 nav {
 	overflow: auto;
-	display: flex;
 	flex-direction: column;
 	flex-shrink: 0;
 }
 #contentBar { 
-	display: flex;
 	justify-content: flex-end;
 }
 #contentBar > * { 
@@ -164,12 +163,12 @@ svg {
 #serieCover img{
 	width: 100%;
 	object-fit: contain;
+	border-radius: inherit;
 }
 #log{
 	min-height: 6rem;
 	overflow: hidden;
 	flex-grow: 1;
-    display: flex;
     flex-direction: column;
 }
 #log>div:nth-child(1){
@@ -362,6 +361,7 @@ svg {
 	background: #333;
 	border-radius: var(--round);
 	overflow: hidden;
+    flex-basis: 100%;
 }
 .progressCon > .progress{
 	min-height: 1rem;
@@ -391,4 +391,6 @@ svg {
 	overflow: auto;
 	flex-shrink: 0;
 	scroll-snap-type: y mandatory;
+    flex-wrap: wrap;
+    flex-direction: row;
 }

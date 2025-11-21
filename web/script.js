@@ -853,7 +853,10 @@ let progressAll = progress["update"];
 let progressNo = progress["updateNo"];
 Object.keys(progressAll).forEach(e=>{
 	let ptmp = Object.assign({}, progressAll[e]);
-	ptmp["serieid"]=e;
+	ptmp["status"]=ptmp["statusText"];
+	ptmp["serieid"]=ptmp["parent"];
+	delete ptmp["statusText"];
+	delete ptmp["parent"];
 	const progressCol = ["progress","subprogress"];
 	progressCol.forEach(pro=>{
 		const pCon = document.createElement("div");
@@ -868,29 +871,83 @@ Object.keys(progressAll).forEach(e=>{
 		pCon.append(p);
 		ptmp[pro] = pCon;
 	})
+	ptmp["action"] = [
+		{
+			name:"start queue",
+			func: ()=>{
+				log("tableAction act:"+"processqueue",true);
+				fetchApiData({type:"processqueue"})
+			}
+		},
+		{
+			name:"stop queue",
+			func: ()=>{
+				log("tableAction act:"+"stopqueue",true);
+				fetchApiData({type:"stopqueue"})
+			}
+		},
+		{
+			name:"clear done queue",
+			func: ()=>{
+				log("tableAction act:"+"cleardonequeue",true);
+				fetchApiData({type:"cleardonequeue"})
+			}
+		},
+		{
+			name:"clear queue",
+			func: ()=>{
+				log("tableAction act:"+"clearqueue",true);
+				fetchApiData({type:"clearqueue"})
+			}
+		},
+		{
+			name:"clear cache",
+			func: ()=>{
+				log("tableAction act:"+"clearcache",true);
+				fetchApiData({type:"clearcache"})
+			}
+		}
+	]
 	data.push(ptmp);
 })
 if(history.state != null && history.state.page == "progress"){displayTable({data:data})}
 const bottomPrg = document.querySelector("#progress");
-const prg = document.createElement("div");
-if(progressNo.length > 0){
-	for (let pi=0; pi<progressNo.length; pi++) {
-		const pn = progressNo[pi];
+progressNo.forEach(pro=>{
+	if(bottomPrg.querySelectorAll("[data-id='"+pro+"']").length<1){
 		const pCon = document.createElement("div");
 		const p = document.createElement("div");
 		pCon.classList.add("progressCon");
 		p.classList.add("progress");
-		pCon.dataset.id = pi
-		p.style.width = progressAll[pn]["subprogress"] + "%";
-		p.innerHTML = progressAll[pn]["subprogress"] + "% " + progressAll[pn]["status"] + " | " + progressAll[pn]["name"];
+		pCon.dataset.id = pro;
+		p.style.width = progressAll[pro]["subprogress"] + "%";
+		p.innerHTML = progressAll[pro]["subprogress"] + "% " + progressAll[pro]["statusText"] + " | " + progressAll[pro]["name"];
 		pCon.append(p);
-		prg.append(pCon);
+		bottomPrg.append(pCon)
 	}
-	bottomPrg.innerHTML = prg.innerHTML;
-	bottomPrg.classList.remove("empty");
-} else{
-	bottomPrg.classList.add("empty");
+})
+let bottomPrgAll = bottomPrg.querySelectorAll("[data-id]");
+for(let num=0;num<bottomPrgAll.length;num++){
+	const prgid = bottomPrgAll[num].dataset.id;
+	const ele = bottomPrgAll[num];
+	if(!progressNo.includes(prgid)){
+		ele.remove()
+	}
+	else if(prgid == progressNo[num]){
+		const p=ele.querySelector(".progress");
+		p.style.width = progressAll[prgid]["subprogress"] + "%";
+		p.innerHTML = progressAll[prgid]["subprogress"] + "% " + progressAll[prgid]["statusText"] + " | " + progressAll[prgid]["name"];
+	}
+	else if(progressNo.includes(prgid)){
+		const p=ele.querySelector(".progress");
+		p.style.width = progressAll[prgid]["subprogress"] + "%";
+		p.innerHTML = progressAll[prgid]["subprogress"] + "% " + progressAll[prgid]["statusText"] + " | " + progressAll[prgid]["name"];
+		if(progressNo.indexOf(prgid)>0){bottomPrg.querySelector("[data-id='"+progressNo[progressNo.indexOf(prgid)-1]+"']").after(ele)}
+		else(bottomPrg.insertAdjacentElement("afterbegin",ele))
+	}
 }
+
+if(progressNo.length > 0){bottomPrg.classList.remove("empty")}
+else{bottomPrg.classList.add("empty")}
 }
 async function sort(table){
 let head = Object.keys(mikan.tableData["0"]).filter(e=>e.toLowerCase()!="action");
