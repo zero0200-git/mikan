@@ -554,6 +554,7 @@ class MDMain:
 				for g in group:
 					if g["id"] not in groupDB:
 						insereplaceDB(table=["tgroup"],values={"id":g["id"], "name":g["name"], "ignore":"0", "fake":g["fake"], "deleted":"0"})
+						fkGroup.add(g["id"]) if g["fake"] == "1" else None
 				if not set(data["groupid"].split(",")).isdisjoint(igGroup):
 					self.logged(f"Ignore chapter {data["chapter"]} from {data["group"]} (ignore)")
 					continue
