@@ -37,6 +37,7 @@ Provide file path via `MIKAN_CONFIG_FILE` environment variable
 
 ### Configuration Options
 - `db_location` - Manga database location
+- `db_auto_backup_update` - Manga database auto update and backup
 - `ssl_crt_location` - SSL certificate file location  
 - `ssl_key_location` - SSL key file location
 - `port` - Server port
