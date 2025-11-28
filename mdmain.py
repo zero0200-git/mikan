@@ -577,7 +577,7 @@ class MDMain:
 						if args["toqueue"] == "yes":
 							progressInfoChapter = progressInfo.copy()
 							progressInfoChapter.update({
-								"id": chp[0]["id"],
+								"id": p["data"]["id"],
 								"status": "pending",
 								"statusText": f"pending to download chapter {p["data"]["chapter"]}",
 								"subprogress": "0",
@@ -590,7 +590,7 @@ class MDMain:
 						if args["toqueue"] == "yes":
 							progressInfoChapter = progressInfo.copy()
 							progressInfoChapter.update({
-								"id": chp[0]["id"],
+								"id": p["data"]["id"],
 								"status": "pending",
 								"statusText": f"pending to download chapter {p["data"]["chapter"]}",
 								"subprogress": "0",
