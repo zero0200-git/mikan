@@ -579,6 +579,7 @@ class MDMain:
 							progressInfoChapter = progressInfo.copy()
 							progressInfoChapter.update({
 								"id": p["data"]["id"],
+								"type": "chapter",
 								"status": "pending",
 								"statusText": f"pending to download chapter {p["data"]["chapter"]}",
 								"subprogress": "0",
@@ -592,6 +593,7 @@ class MDMain:
 							progressInfoChapter = progressInfo.copy()
 							progressInfoChapter.update({
 								"id": p["data"]["id"],
+								"type": "chapter",
 								"status": "pending",
 								"statusText": f"pending to download chapter {p["data"]["chapter"]}",
 								"subprogress": "0",
