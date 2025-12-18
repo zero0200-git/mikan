@@ -378,7 +378,7 @@ def start_server():
 		
 		context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 		logged("certificate path: ", svCert)
-		logged("certificate key path: ", svCert)
+		logged("certificate key path: ", svCertKey)
 		context.load_cert_chain(certfile=svCert, keyfile=svCertKey)
 		
 		checkDB()
