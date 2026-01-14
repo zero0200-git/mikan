@@ -144,6 +144,10 @@ nav {
 #contentBar > * { 
 	margin: 0 var(--margin);
 }
+#contentBar > #searchdata {
+	min-width: initial;
+	width: min(100%,20rem);
+}
 #contentBar > :last-child { 
 	margin: 0;
 }
@@ -255,6 +259,9 @@ svg {
 .loginlogout.login #login {
 	display: none;
 }
+#content .data .filterHide,#content .data .searchHide { 
+	display: none !important;
+}
 #content[data-display-type=table] { 
 	--col-template: auto;
 	display: flex;
@@ -313,7 +320,7 @@ svg {
 	opacity: 0;
 	margin: var(--padding);
 }
-#content[data-display-type=table] > .scrollbar:hover {
+#content[data-display-type=table] > .scrollbar:hover,#content[data-display-type=table] > .scrollbar:focus {
 	opacity: 1;
 }
 #content[data-display-type=table] > * > .header:first-child {

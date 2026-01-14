@@ -32,8 +32,10 @@ if __name__ == "__main__":
 		import sqlite3
 		from getpass import getpass
 		from json import loads,dumps
-		from mdbase import readConfig,configFile,settings,hashPassword
+		from src.base import Base
 
+		configFile = Base().getInfo("configFile")
+		settings = Base().getInfo("settings")
 		print("\n")
 		config = configparser.ConfigParser(interpolation=None)
 		config.read(configFile)
@@ -55,10 +57,10 @@ if __name__ == "__main__":
 				break
 			else:
 				username = input("Please input Username: ")
-		password = hashPassword(getpass("Please input Password: "))
+		password = Base().hashPassword(getpass("Please input Password: "))
 
 		userAll[username] = password
-		db = sqlite3.connect(readConfig()["db_location"])
+		db = sqlite3.connect(Base().getInfo("config")["db_location"])
 		db.execute('PRAGMA journal_mode=WAL;')
 		cursor = db.cursor()
 		cursor.execute("UPDATE `settings` SET `value` = ? WHERE key = ?", (dumps(userAll),"webUser",))
