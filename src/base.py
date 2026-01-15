@@ -1716,6 +1716,7 @@ class Process:
 				for q in queued:
 					if self.base.isQueueStop():
 						self.logged("Queue process stopped by external signal")
+						qAll = True
 						break
 
 					if q["type"] == "chapter":
