@@ -147,6 +147,7 @@ nav {
 #contentBar > #searchdata {
 	min-width: initial;
 	width: min(100%,20rem);
+	padding: 0 var(--padding);
 }
 #contentBar > :last-child { 
 	margin: 0;
@@ -335,6 +336,12 @@ svg {
 #content[data-display-type=table] *[data-select="true"] {
 	text-decoration:underline;
 }
+#context > .context{
+	position: fixed;
+	overflow-y: auto;
+	z-index: 999;
+	transition:none;
+}
 .context{
 	position: absolute;
 	top: 0.2rem;
@@ -347,7 +354,13 @@ svg {
 	backdrop-filter: blur(var(--blur));
 	z-index: 10;
 }
+.context.loading{
+	visibility: hidden;
+	opacity: 0;
+	pointer-events: none;
+}
 .context > button{
+	font-size: 0.9rem;
 	background: none;
 	border-left: none;
 	border-right: none;
@@ -358,11 +371,6 @@ svg {
 }
 .context > button:hover, .context > button:focus {
 	background: var(--backgroundEle);
-}
-#context > .context{
-	position: fixed;
-	overflow-y: auto;
-	z-index: 999;
 }
 .progressCon{
 	background: #333;

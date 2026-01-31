@@ -451,7 +451,6 @@ for (let i = 0; i < colsLength; i++) {
 			cc.push({
 				id: "Sort by \""+colsAll[j]+"\" "+s,
 				name: "Sort by \""+colsAll[j]+"\" "+s,
-				value: "",
 				action: ()=>{
 					if(mikan.sortLast.includes(colsAll[j])){mikan.sortLast.splice(mikan.sortLast.indexOf(colsAll[j]),1)}
 					mikan.sortLast.unshift(colsAll[j]);
@@ -498,7 +497,7 @@ for (let i=0; i<arg["data"].length; i++) {
 		}
 
 		for(const id of key){dataCol.dataset[id] = arg["data"][i][id]}
-		dataCol.addEventListener("click",async()=>{if(dataCol.dataset["select"]!="true"){
+		dataCol.selected = async()=>{if(dataCol.dataset["select"]!="true"){
 			document.querySelectorAll("#content .data > *[data-select=true]").forEach(e=>{e.dataset["select"]="false"});
 			document.querySelectorAll("#content .data > *[data-row='"+dataCol.dataset["row"]+"']").forEach(e=>{e.dataset["select"]="true"});
 			if(typeof dataCol.dataset["serieid"]=="string"){
@@ -510,7 +509,8 @@ for (let i=0; i<arg["data"].length; i++) {
 				document.querySelector("#serieCover img").src="";
 				document.body.style.removeProperty("--background");
 			}
-		}})
+		}}
+		dataCol.addEventListener("click",dataCol.selected)
 
 		let cc = []
 		if("action" in arg["data"][i]){
@@ -518,12 +518,11 @@ for (let i=0; i<arg["data"].length; i++) {
 			cc.push({
 				id: ac["name"],
 				name: ac["name"],
-				value: "",
 				action: ()=>ac["func"]()
 			});
 		}
+		dataCol.addEventListener("contextmenu", (e) => {dataCol.selected();contextMenu({id:"tableDataRow"+(i+1),location:dataCol,event:e,context:cc})})
 		}
-		if("action" in arg["data"][i]){dataCol.addEventListener("contextmenu", (e) => {contextMenu({id:"tableDataRow"+(i+1),location:dataCol,event:e,context:cc})})}
 		dataSec.append(dataCol);
 		dataLoad.observe(dataCol);
 	}
@@ -1019,7 +1018,6 @@ let def = {
 		{
 			id: "input",
 			name: "text",
-			value: "",
 			action: ()=>{}
 		}
 	]
@@ -1046,33 +1044,36 @@ const con = document.querySelector("#context");
 const all = con.querySelectorAll("*");
 const oldId = con.querySelectorAll("[data-context-id='"+arg["id"]+"']")
 if(oldId.length>0){oldId.forEach(e=>con.removeChild(e));return}
-arg["event"].preventDefault();
 try{all.forEach(e=>e.rm())}catch{}
-
-const contextCon = document.createElement("div");
-contextCon.classList.add("context");
-contextCon.tabIndex=0;
-contextCon.dataset.contextId = arg["id"];
-let relocation = ()=>{
-contextCon.style.top = (arg["location"].getBoundingClientRect().y+arg["y"])+"px";
-contextCon.style.left = (arg["location"].getBoundingClientRect().x+arg["x"])+"px";
-contextCon.style.maxHeight = (body.offsetHeight-(arg["location"].getBoundingClientRect().y+arg["y"]))+"px";
-contextCon.style.maxWidth = (body.offsetWidth-(arg["location"].getBoundingClientRect().x+arg["x"]))+"px";
-};
-if(arg["event"]!={}){
-const yPerc = arg["event"].offsetY/arg["location"].scrollHeight;
-const xPerc = arg["event"].offsetX/arg["location"].scrollWidth;
-relocation = ()=>{
-contextCon.style.top = ((yPerc*arg["location"].scrollHeight)+arg["location"].getBoundingClientRect().y+arg["y"]+8)+"px";
-contextCon.style.left = ((xPerc*arg["location"].scrollWidth)+arg["location"].getBoundingClientRect().x+arg["x"]+8)+"px";
-contextCon.style.maxHeight = (body.offsetHeight-((yPerc*arg["location"].scrollHeight)+arg["location"].getBoundingClientRect().y+arg["y"]))+"px";
-contextCon.style.maxWidth = (body.offsetWidth-((xPerc*arg["location"].scrollWidth)+arg["location"].getBoundingClientRect().x+arg["x"]))+"px";
-};
+let yPerc,xPerc;
+if(arg["event"]!={} && "type" in arg["event"] && arg["event"].type == "contextmenu"){
+arg["event"].preventDefault();
+yPerc = arg["event"].offsetY/arg["location"].scrollHeight;
+xPerc = arg["event"].offsetX/arg["location"].scrollWidth;
 }
 
-relocation();
-window.addEventListener("resize",relocation);
+const contextCon = document.createElement("div");
+contextCon.classList.add("context","loading");
 con.append(contextCon);
+contextCon.tabIndex=0;
+contextCon.dataset.contextId = arg["id"];
+let topC = arg["location"].getBoundingClientRect().y+arg["location"].offsetHeight+arg["y"];
+let leftC = arg["location"].getBoundingClientRect().x+arg["location"].offsetWidth+arg["x"];
+let relocation = ()=>{
+if(arg["event"]!={} && "type" in arg["event"] && arg["event"].type == "contextmenu"){
+topC = (yPerc*arg["location"].scrollHeight)+arg["location"].getBoundingClientRect().y+arg["y"]
+leftC = (xPerc*arg["location"].scrollWidth)+arg["location"].getBoundingClientRect().x+arg["x"]
+}
+contextCon.style.top = (body.offsetHeight > topC+contextCon.offsetHeight ? topC : topC-(contextCon.offsetHeight))+"px";
+contextCon.style.left = (body.offsetWidth > leftC+contextCon.offsetWidth ? leftC : leftC-(contextCon.offsetWidth))+"px";
+contextCon.style.maxHeight = "min("+body.offsetHeight+"px,20rem)";
+contextCon.style.maxWidth = "min("+body.offsetWidth+"px,20rem)";
+
+if(contextCon.classList.contains("loading")){contextCon.classList.remove("loading")}
+};
+
+window.addEventListener("resize",relocation);
+setTimeout(relocation,1)
 
 let parentSc = (el)=>{
 	if(el!=body){
@@ -1088,12 +1089,18 @@ let parentScRm = (el)=>{
 }
 parentSc(arg["location"]);
 
-const reEvt = () => {
+const elementLocationCheck = new MutationObserver(() => {if(!arg["location"].isConnected){reEvt()}});
+const reEvt = ()=>{
+if(contextCon.isConnected){
 con.removeChild(contextCon);
 window.removeEventListener("resize",relocation);
 contextCon.removeEventListener("mouseleave",reEvt);
 parentScRm(arg["location"]);
+elementLocationCheck.disconnect();
 }
+}
+elementLocationCheck.observe(body, {childList: true, subtree: true});
+
 contextCon.rm = reEvt;
 
 for(let c=0; c<arg["context"].length; c++) {
@@ -1216,7 +1223,8 @@ let checklogin1st = async() => {
 			headers: {'Authorization': `Bearer ${JSON.parse(localStorage.getItem("token"))}`}
 			});
 			if(r.status == 200){mikan.login = true; load1st(); document.querySelector(".loginlogout").classList.add("login")}
-			else{log("Login token not valid, Please try login again."); document.querySelector("#login").click()}
+			else if(r.status == 401){log("Login token not valid, Please try login again."); document.querySelector("#login").click()}
+			else{log("Cannot connect to server.")}
 		}
 	}catch{
 		log("Login token corrupt, Please try login again.")
@@ -1232,6 +1240,12 @@ document.querySelectorAll("nav > button").forEach(n => {
 	url.searchParams.set("page", n.value);
 	url.searchParams.set("value", "");
 	n.addEventListener("click",()=>{history.pushState({page:n.value,value:""}, "", url);checkPage()})
+});
+document.querySelector("#more").addEventListener("click", async () => {
+	contextMenu({id:"more",location:document.querySelector("#more"),context:[
+		{id: "restartserver", name: "Restart Server", action: ()=>{fetchApiData({type:"restart",valueObj:{type:"restart"}})}},
+		{id: "stopserver", name: "Stop Server", action: ()=>{fetchApiData({type:"stop",valueObj:{type:"stop"}})}}
+	]})
 });
 document.querySelector("#login").addEventListener("click", async () => {
 	const info = await formWindow({title:"Login", form:[{id:"username",type:"text",name:"username"},{id:"password",type:"password",name:"password"}]})

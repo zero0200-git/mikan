@@ -249,7 +249,7 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 
 		queryParams = parse_qs(urlparse(self.path).query)
 		queryType = ",".join(queryParams["type"]) if "type" in queryParams else "na"
-		validType = ["ping","search","knownseries","knownserieschapter","knowngroups","getsettings","updateserie","setsettings","addserie","dllast","updatechapter","updateanddllast","updatecover","dlchapter","processqueue","processfailedqueue","stopqueue","clearqueue","cleardonequeue","clearcache","updateallserieschapter"]
+		validType = ["ping","search","knownseries","knownserieschapter","knowngroups","getsettings","updateserie","setsettings","addserie","dllast","updatechapter","updateanddllast","updatecover","dlchapter","processqueue","processfailedqueue","stopqueue","clearqueue","cleardonequeue","clearcache","updateallserieschapter","stop","restart"]
 		if self.path.startswith('/api') and self.authenticate() and queryType in validType:
 			self.send_response(200)
 			self.send_header('Content-type', 'application/json')
