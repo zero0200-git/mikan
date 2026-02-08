@@ -298,7 +298,7 @@ class Base:
 
 	@staticmethod
 	@lru_cache(maxsize=20)
-	def requestGet(url:str, logged:Callable=Log.logged) -> dict:
+	def requestGet(url:str, logged:Callable=Log().logged) -> dict:
 		base = Base(logged=logged)
 		headers = base.getInfo("headers")
 		logged(f"request: {url}")
@@ -308,7 +308,7 @@ class Base:
 			with urllib.request.urlopen(req) as response:
 				r["status"] = response.getcode()
 				r["data"] = response.read()
-				r["header"] = response.headers
+				r["header"] = dict(response.headers)
 				try:
 					r["text"] = r["data"].decode("utf-8")
 				except:
@@ -326,7 +326,7 @@ class Base:
 		return r
 
 	@staticmethod
-	def requestPost(url:str, logged:Callable=Log.logged, data:dict={}) -> dict:
+	def requestPost(url:str, logged:Callable=Log().logged, data:dict={}) -> dict:
 		base = Base(logged=logged)
 		headers = base.getInfo("headersPost")
 		postData = urllib.parse.urlencode(data).encode()
@@ -355,7 +355,11 @@ class Base:
 			logged(f"request: {url} error")
 		return r
 
-	def downloadPage(self, url:str, location:str) -> dict:
+	def downloadPage(self, url:str, location:str, progressCallback:Callable|None=None) -> dict:
+		speedUnit = ["B","KB","MB","GB","TB","PB"]
+		speed = 0
+		speedUC = 0
+		textLength = 0
 		headers = self.getInfo("headers")
 		out = {}
 		if location != "" and url != "":
@@ -364,6 +368,7 @@ class Base:
 			self.logged(f"request: {url}")
 			try:
 				with urllib.request.urlopen(req, timeout=10) as r:
+					startTime = time.time()
 					out["url"] = url
 					out["status"] = r.getcode()
 					out["header"] = r.headers
@@ -386,8 +391,8 @@ class Base:
 								file.write(data)
 								out["data"] += data
 								out["download"] += len(data)
-								out["usedtime"] = int(time.time()) - out["start"]
-								out["speed"] = out["download"] / out["usedtime"] if out["usedtime"] > 0 else 0
+								out["usedtime"] = (time.time() - out["start"]) if (time.time() - out["start"])>1 else 1
+								out["speed"] = out["download"] / (time.time() - startTime)
 
 								if out["speed"] > 4_000_000:
 									out["block"] = 65536
@@ -397,8 +402,27 @@ class Base:
 									out["block"] = 4096
 								
 								out["percent"] = out["download"] / out["size"] * 100 if out["size"] else 0
-								sys.stdout.write(f"\rDownloading: {out["percent"]:.2f}% ({out["download"]}/{out["size"]} bytes) | Speed: {out["speed"]/1_000:.2f} KB/s")
+								speed = out["speed"]
+								speedUC = 0
+								while int(speed) > 1000 and speedUC < len(speedUnit)-1:
+									speed = speed/1000
+									speedUC += 1
+								text = f"\rDownloading: {out["percent"]:.2f}% ({out["download"]}/{out["size"]} bytes) | Speed: {speed:.2f} {speedUnit[speedUC]}/s"
+								sys.stdout.write(f"\r{" "*textLength}")
+								sys.stdout.write(text)
 								sys.stdout.flush()
+								textLength = len(text)
+								if isinstance(progressCallback,Callable):
+									def run_callback():
+										try:
+											progressCallback(out)
+										except Exception as e:
+											self.logged(f"Callback error: {e}")
+									callbackThread = threading.Thread(target=run_callback, daemon=True)
+									callbackThread.start()
+									callbackThread.join(timeout=5)
+									if callbackThread.is_alive():
+										self.logged(f"Callback timeout after 5 seconds")
 							sys.stdout.write("\n")
 							sys.stdout.flush()
 							file.flush()
@@ -1273,17 +1297,30 @@ class Process:
 				status = f"failed to download {chapter['title']} (no data)"
 				return {"status":status}
 
+			imgLenth = len(img)
+			imgPerPrecentFt = 1/imgLenth
 			for image in img:
 				progressInfo.update({
 					"statusText": f"downloading chapter {chapter['title']} page {image["page"]}/{len(img)}",
-					"progress": str(round((image["page"]/len(img))*80+20,2)),
-					"subprogress": str(round((image["page"]/len(img))*100,2))
+					"progress": str(round(((image["page"]-1)/len(img))*80+20,2)),
+					"subprogress": str(round(((image["page"]-1)/len(img))*100,2))
 				})
 				self.progress.updatelist(progressInfo)
 				chapter["page"] = image["page"]
 				chapter["extension"] = image["extension"]
 				chapter["time"] = datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')
-				requestPage = self.base.downloadPage(image["url"], self.base.customFormat(location+format, **chapter))
+				def percentCall(data):
+					checkInput = self.base.checkArg({
+						"input":args,
+						"context":[{"var":"percent", "type":str, "req":True}]
+					})
+					if checkInput["status"]=="success":
+						progressInfo.update({
+							"subprogress": (image["page"]/len(img))*100 + checkInput["normal"]["percent"],
+						})
+						self.progress.updatelist(progressInfo)
+
+				requestPage = self.base.downloadPage(url=image["url"], location=self.base.customFormat(location+format, **chapter), progressCallback=percentCall)
 				if "callback" in image and isinstance(image["callback"],Callable):
 					def run_callback():
 						try:

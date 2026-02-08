@@ -379,8 +379,9 @@ let checkInput = checkArg({
 	input:arg,
 	context:[
 		{var:"data",type:"array",def:[]},
-		{var:"link", type:"boolean", def:false },
-		{var:"action", type:"object"}
+		{var:"link", type:"boolean", def:false},
+		{var:"action", type:"object"},
+		{var:"moreaction", type:"object", def:mikan.moreActionDef}
 	]
 });
 if(checkInput["status"]=="failed"){
@@ -389,9 +390,11 @@ if(checkInput["status"]=="failed"){
 arg=checkInput["data"]["normal"];
 
 if(arg.data.length==0){
+	mikan.moreAction = mikan.moreActionDef;
 	document.querySelector("#content").innerHTML="";
 	return
 }
+mikan.moreAction = Object.assign({},arg.moreaction,mikan.moreActionDef);
 mikan.tableData = arg.data;
 await sortTable();
 const key = [];
@@ -445,19 +448,18 @@ for (let i = 0; i < colsLength; i++) {
 		e.preventDefault();
 		head.dataset["select"]="false";
 	}});
-	let cc = []
+	let cc = {}
 	for (let j=0; j<colsAll.length; j++) {
 		for (const s of ["asc","desc"]){
-			cc.push({
-				id: "Sort by \""+colsAll[j]+"\" "+s,
+			cc["Sort by \""+colsAll[j]+"\" "+s] = {
 				name: "Sort by \""+colsAll[j]+"\" "+s,
 				action: ()=>{
 					if(mikan.sortLast.includes(colsAll[j])){mikan.sortLast.splice(mikan.sortLast.indexOf(colsAll[j]),1)}
 					mikan.sortLast.unshift(colsAll[j]);
 					mikan.sort[colsAll[j]]=s;
-					displayTable({data:arg.data,link:arg.link,action:arg.action});
+					displayTable(arg);
 				}
-			});
+			};
 		}
 	}
 
@@ -514,12 +516,11 @@ for (let i=0; i<arg["data"].length; i++) {
 
 		let cc = []
 		if("action" in arg["data"][i]){
-		for (const ac of arg["data"][i]["action"]) {
-			cc.push({
-				id: ac["name"],
+		for(const ac of arg["data"][i]["action"]){
+			cc[ac["name"]] = {
 				name: ac["name"],
 				action: ()=>ac["func"]()
-			});
+			};
 		}
 		dataCol.addEventListener("contextmenu", (e) => {dataCol.selected();contextMenu({id:"tableDataRow"+(i+1),location:dataCol,event:e,context:cc})})
 		}
@@ -649,7 +650,7 @@ if(arg["value"]!=""){
 			}
 		},
 	];return e});
-	displayTable({data:mikan.tableData,link:true})
+	displayTable({data:mikan.tableData,link:true,moreaction:{"checkallseries": {name:"Check all series chapter", action:()=>{fetchApiData({type:"updateallserieschapter"})}}}})
 }
 }
 async function searchSeries(arg){
@@ -754,7 +755,7 @@ let progressNo = progress["updateNo"];
 if(history.state != null && history.state.page == "progress"){
 	let t = document.querySelector("#content");
 	for(let i=0;i<10;i++) {
-		let pInfo = Object.assign({}, progressAll[mikan.progress.updateNo[i]]);
+		let pInfo = structuredClone(progressAll[mikan.progress.updateNo[i]]);
 		let tEle = t.querySelectorAll("[data-id='"+mikan.progress.updateNo[i]+"']");
 		if(tEle.length>1){
 			pInfo["status"] = pInfo["statusText"];
@@ -782,7 +783,7 @@ if(history.state != null && history.state.page == "progress"){
 		} else{
 			let data = [];
 			Object.keys(progressAll).forEach(e=>{
-				let ptmp = Object.assign({}, progressAll[e]);
+				let ptmp = structuredClone(progressAll[e]);
 				ptmp["status"] = ptmp["statusText"];
 				ptmp["serieid"] = ptmp["parent"];
 				delete ptmp["statusText"];
@@ -1014,13 +1015,12 @@ let def = {
 	x:0,
 	y:0,
 	event:{},
-	context:[
-		{
-			id: "input",
+	context:{
+		"id":{
 			name: "text",
 			action: ()=>{}
 		}
-	]
+	}
 };
 let out = {status:"", data:{}}
 let checkInput = checkArg({
@@ -1032,7 +1032,7 @@ let checkInput = checkArg({
 		{var:"x", type:"number"},
 		{var:"y", type:"number"},
 		{var:"event", type:"object"},
-		{var:"context", type:"array"}
+		{var:"context", type:"object"}
 	]
 });
 if(checkInput["status"]=="failed"){
@@ -1099,11 +1099,11 @@ parentScRm(arg["location"]);
 elementLocationCheck.disconnect();
 }
 }
-elementLocationCheck.observe(body, {childList: true, subtree: true});
+elementLocationCheck.observe(body, {childList:true, subtree:true});
 
 contextCon.rm = reEvt;
 
-for(let c=0; c<arg["context"].length; c++) {
+for(const c in arg["context"]){
 const context = document.createElement("button");
 context.innerHTML = arg["context"][c]["name"];
 context.tabIndex = 1;
@@ -1203,20 +1203,29 @@ return suc("[checkArg] sucess",input)
 
 
 
-mikan={};
-mikan.sort={chapter:"asc",name:"asc"};
-mikan.sortLast=["chapter","name"];
-mikan.filterList={};
-mikan.progress={};
-mikan.login=false;
-mikan.debug=false;
-mikan.server=window.location.origin;
-let load1st=()=>{
+mikan = {
+	"sort": {chapter:"asc",name:"asc"},
+	"sortLast": ["chapter","name"],
+	"filterList": {},
+	"progress": {},
+	"login": false,
+	"debug": false,
+	"server": window.location.origin,
+	"moreAction": {
+		"restartserver": {name:"Restart Server", action:()=>{fetchApiData({type:"restart"})}},
+		"stopserver": {name:"Stop Server", action:()=>{fetchApiData({type:"stop"})}}
+	},
+	"moreActionDef": {
+		"restartserver": {name:"Restart Server", action:()=>{fetchApiData({type:"restart"})}},
+		"stopserver": {name:"Stop Server", action:()=>{fetchApiData({type:"stop"})}}
+	},
+};
+load1st = ()=>{
 	loadToken()
 	checkPage()
 	serverEvent()
 }
-let checklogin1st = async() => {
+checklogin1st = async() => {
 	try{
 		if(localStorage.getItem("token")!=null) {
 			let r = await fetch(mikan["server"]+'/api?type=ping', {
@@ -1242,10 +1251,7 @@ document.querySelectorAll("nav > button").forEach(n => {
 	n.addEventListener("click",()=>{history.pushState({page:n.value,value:""}, "", url);checkPage()})
 });
 document.querySelector("#more").addEventListener("click", async () => {
-	contextMenu({id:"more",location:document.querySelector("#more"),context:[
-		{id: "restartserver", name: "Restart Server", action: ()=>{fetchApiData({type:"restart",valueObj:{type:"restart"}})}},
-		{id: "stopserver", name: "Stop Server", action: ()=>{fetchApiData({type:"stop",valueObj:{type:"stop"}})}}
-	]})
+	contextMenu({id:"more",location:document.querySelector("#more"),context:mikan.moreAction})
 });
 document.querySelector("#login").addEventListener("click", async () => {
 	const info = await formWindow({title:"Login", form:[{id:"username",type:"text",name:"username"},{id:"password",type:"password",name:"password"}]})

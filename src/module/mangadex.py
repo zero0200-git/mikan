@@ -102,12 +102,12 @@ class mangadex(ModuleTemplate):
 		out["author_string"] = ",".join(out["author"])
 		out["artist_string"] = ",".join(out["artist"])
 
-		r = base.requestGet(f"{self.url["api"]}/cover/{out["cover_id"]}")
+		r = request(f"{self.url["api"]}/cover/{out["cover_id"]}")
 		out["cover_full_name"] = r["json"]["data"]["attributes"]["fileName"]
 		out["cover_name"] = out["cover_full_name"].split(".")[0]
 		out["cover_extension"] = "."+out["cover_full_name"].split(".")[1]
 
-		r = base.requestGet(f"{self.url["image"]}/covers/{serieid}/{out["cover_full_name"]}")
+		r = request(f"{self.url["image"]}/covers/{serieid}/{out["cover_full_name"]}")
 		out["cover"] = r["data"]
 		return out
 
@@ -126,30 +126,36 @@ class mangadex(ModuleTemplate):
 		lang = base.getInfo("settings")["languages"].split(",")
 
 		query = {"limit":[alchplimit], "offset":[alchpoffset], "includes[]":["scanlation_group"], "contentRating[]":["safe","suggestive","erotica","pornographic"]}
-		if len(lang) > 1:
-			query["translatedLanguage[]"] = lang
+		if len(lang) > 1: query["translatedLanguage[]"] = lang
 		url = urllib.parse.urlparse(self.url["api"])._replace(path="/manga/"+serieid+"/feed")
 
 		while alchp == False:
 			query["offset"] = [alchpoffset]
 			r = request(urllib.parse.urlunparse(url._replace(query=urllib.parse.urlencode(query,doseq=True))))
-			chpdata = r["json"]
-			alchptotal = int(chpdata["total"]) if "total" in chpdata else 0
-			allChapter.extend([{
-					"id": chp['id'], 
-					"volume": chp["attributes"]["volume"], 
-					"chapter": chp["attributes"]["chapter"], 
-					"title": chp["attributes"]["title"], 
-					"lang_short": chp["attributes"]["translatedLanguage"],
-					"group": ",".join([g["attributes"]["name"] for g in chp["relationships"] if g["type"] == "scanlation_group"]),
-					"groupid": ",".join([g["id"] for g in chp["relationships"] if g["type"] == "scanlation_group"]),
-					"group_combid": [{"id":g["id"],"name":g["attributes"]["name"],"fake":"1" if g["attributes"]["official"] else "0"} for g in chp["relationships"] if g["type"] == "scanlation_group"]
-				} for chp in chpdata["data"]])
-			if len(allChapter) >= alchptotal:
-				alchp = True
-			else:
-				alchpoffset=alchplimit+alchpoffset
-				time.sleep(1)
+			rateLimit = int(r["header"]["x-ratelimit-limit"]) if "x-ratelimit-limit" in r["header"] else 1
+			rateLimitRem = int(r["header"]["x-ratelimit-remaining"]) if "x-ratelimit-remaining" in r["header"] else 1
+			if (rateLimit>3 and rateLimitRem<2) or (rateLimit<=3 and rateLimitRem<1) or r["status"] == 429:
+				resetTime = int(r["header"]["x-ratelimit-retry-after"]) - int(time.time())
+				ts = resetTime if resetTime > 10 else 10
+				self.logged(f"[mangadex] get chapter list rate limit reach. wait for {ts} seconds...")
+				time.sleep(ts)
+			elif r["status"] == 200:
+				chpdata = r["json"]
+				alchptotal = int(chpdata["total"]) if "total" in chpdata else 0
+				allChapter.extend([{
+						"id": chp['id'], 
+						"volume": chp["attributes"]["volume"], 
+						"chapter": chp["attributes"]["chapter"], 
+						"title": chp["attributes"]["title"], 
+						"lang_short": chp["attributes"]["translatedLanguage"],
+						"group": ",".join([g["attributes"]["name"] for g in chp["relationships"] if g["type"] == "scanlation_group"]),
+						"groupid": ",".join([g["id"] for g in chp["relationships"] if g["type"] == "scanlation_group"]),
+						"group_combid": [{"id":g["id"],"name":g["attributes"]["name"],"fake":"1" if g["attributes"]["official"] else "0"} for g in chp["relationships"] if g["type"] == "scanlation_group"]
+					} for chp in chpdata["data"]])
+				if len(allChapter) >= alchptotal:
+					alchp = True
+				else:
+					alchpoffset=alchplimit+alchpoffset
 		return allChapter
 
 	def getAuthorInfo(self,authorid:str):
@@ -166,7 +172,7 @@ class mangadex(ModuleTemplate):
 			return 0
 		else:
 			r = []
-			r = base.requestGet(f"{self.url["api"]}/author/{args["id"]}")
+			r = request(f"{self.url["api"]}/author/{args["id"]}")
 			out["status"] = r["status"]
 			if r["status"] == 200:
 				data = r["json"]["data"]
@@ -184,54 +190,32 @@ class mangadex(ModuleTemplate):
 		})
 		if checkInput["status"]=="failed": raise Exception(checkInput["data"]["msg"])
 
-		def report(args):
-			checkInput = base.checkArg({
-				"input":args,
-				"context":[
-					{"var":"url", "type":str, "req":True},
-					{"var":"status", "type":int, "req":True},
-					{"var":"size", "type":int, "req":True},
-					{"var":"usedtime", "type":int, "req":True},
-					{"var":"cache", "type":str, "req":True}
-				]
-			})
-			if checkInput["status"]=="success":
-				reportData = {
-					"url": args["url"],
-					"success": True if args["status"] == 200 else False,
-					"bytes": args["size"],
-					"duration": round(args["usedtime"] * 1000),
-					"cached": args["cache"].startswith("HIT")
-				}
-				r=base.requestPost("https://api.mangadex.network/report", data=reportData, logged=self.logged)
-				if r["status"]!=200:
-					self.logged("[mangadex] cannot report to server: ",r["status"])
-			else:
-				self.logged("[mangadex] cannot report to server: ",checkInput["data"]["msg"])
-
+		imgGet = False
 		imgList = []
-		r = base.requestGet(f"{self.url["api"]}/at-home/server/{chapterid}")
-		if r["status"]!=200 or r["json"]["result"]!="ok" or "chapter" not in r["json"]:
-			self.logged(f"Get chapter {chapterid} images failed. (no data)")
-			return []
-		chp = r["json"]
-		for page,name in enumerate(chp["chapter"]["data"], start=1):
-			imgList.append({
-				"page":page,
-				"url":f"{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{name}",
-				"name":os.path.splitext(name)[0],
-				"extension":os.path.splitext(name)[1],
-				"callback": report
-			})
+		while imgGet == False:
+			r = base.requestGet(f"{self.url["api"]}/at-home/server/{chapterid}")
+			rateLimit = int(r["header"]["x-ratelimit-limit"]) if "x-ratelimit-limit" in r["header"] else 1
+			rateLimitRem = int(r["header"]["x-ratelimit-remaining"]) if "x-ratelimit-remaining" in r["header"] else 1
+			if (rateLimit>3 and rateLimitRem<2) or (rateLimit<=3 and rateLimitRem<1) or r["status"] == 429:
+				resetTime = int(r["header"]["x-ratelimit-retry-after"]) - int(time.time())
+				ts = resetTime if resetTime > 10 else 10
+				self.logged(f"[mangadex] get chapter image rate limit reach. wait for {ts} seconds...")
+				time.sleep(ts)
+			else:
+				if r["status"] != 200:
+					self.logged(f"Get chapter {chapterid} images failed. ({r["status"]})")
+					return []
+				if "chapter" not in r["json"]:
+					self.logged(f"Get chapter {chapterid} images failed. (no data)")
+					return []
+				chp = r["json"]
+				for page,name in enumerate(chp["chapter"]["data"], start=1):
+					imgList.append({
+						"page": page,
+						"url": f"{chp["baseUrl"]}/data/{chp["chapter"]["hash"]}/{name}",
+						"name": os.path.splitext(name)[0],
+						"extension": os.path.splitext(name)[1]
+					})
+				imgGet = True
 		return imgList
-
-
-
-
-
-
-
-
-
-
 
