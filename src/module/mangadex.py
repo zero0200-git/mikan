@@ -92,15 +92,6 @@ class mangadex(ModuleTemplate):
 				out["cover_id"] = req["id"]
 		out["author_string"] = ",".join(out["author"])
 		out["artist_string"] = ",".join(out["artist"])
-		for req in manga["relationships"]:
-			if req["type"] == "author":
-				out["author"].append(req["id"])
-			elif req["type"] == "artist":
-				out["artist"].append(req["id"])
-			elif req["type"] == "cover_art":
-				out["cover_id"] = req["id"]
-		out["author_string"] = ",".join(out["author"])
-		out["artist_string"] = ",".join(out["artist"])
 
 		r = request(f"{self.url["api"]}/cover/{out["cover_id"]}")
 		out["cover_full_name"] = r["json"]["data"]["attributes"]["fileName"]
@@ -218,4 +209,3 @@ class mangadex(ModuleTemplate):
 					})
 				imgGet = True
 		return imgList
-

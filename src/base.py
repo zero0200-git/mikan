@@ -247,7 +247,7 @@ class Base:
 					if "scriptLocation" == v:
 						Base._baseVars[v] = os.path.abspath(os.path.dirname(sys.argv[0]))
 					if "version" == v:
-						Base._baseVars[v] = "1.3.0"
+						Base._baseVars[v] = "1.3.1"
 					if "configFile" == v:
 						Base._baseVars[v] = os.getenv("MIKAN_CONFIG_FILE") if os.getenv("MIKAN_CONFIG_FILE") != None else Base._baseVars["scriptLocation"]+'/config.ini'
 					if "config" == v:
@@ -1838,7 +1838,7 @@ class View:
 		elif args["provider"] in self.base.getInfo("provider"):
 			mod = Modules(self.logged)
 			mod.loadModule(args["provider"], logged=self.logged)
-			return mod.getCover(args["id"])
+			return mod.getSerieInfo(args["id"])["cover"]
 		else:
 			return self.getAppBG({"color":"#000000","type":"color"})
 
