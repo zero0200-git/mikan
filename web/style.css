@@ -5,8 +5,8 @@ html:root {
 	--backgroundEle: rgba(0, 0, 0, 0.4);
 	--round: 0.4rem;
 	--blur: 2rem;
-	--margin: 0.2rem;
-	--padding: 0.4rem;
+	--margin: 0.16rem;
+	--padding: 0.32rem;
 }
 *{
 	box-sizing:border-box;
@@ -79,7 +79,7 @@ header {
 	align-items: stretch;
 	border-radius: var(--round);
 	margin: var(--margin);
-	padding: calc(var(--padding)/2);
+	padding: calc(var(--padding));
 	background: var(--backgroundEle);
 	backdrop-filter: blur(var(--blur));
 }
@@ -142,10 +142,12 @@ nav > button {
 	border-radius: 0;
 }
 nav > button:first-child {
-	border-radius: var(--round) var(--round) 0 0;
+	border-top-left-radius: var(--round);
+	border-top-right-radius: var(--round);
 }
 nav > button:last-child {
-	border-radius: 0 0 var(--round) var(--round);
+	border-bottom-left-radius: var(--round);
+	border-bottom-right-radius: var(--round);
 }
 #contentBar { 
 	justify-content: flex-end;
@@ -153,13 +155,16 @@ nav > button:last-child {
 #contentBar > * { 
 	margin: 0 var(--margin);
 }
+#contentBar > *:first-child { 
+	margin-left: 0;
+}
+#contentBar > *:last-child { 
+	margin-right: 0;
+}
 #contentBar > #searchdata {
 	min-width: initial;
 	width: min(100%,20rem);
 	padding: 0 var(--padding);
-}
-#contentBar > :last-child { 
-	margin: 0;
 }
 #content {
 	flex-grow: 1;

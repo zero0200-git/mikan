@@ -802,53 +802,35 @@ if(history.state != null && history.state.page == "progress"){
 					pCon.append(p);
 					ptmp[pro] = pCon;
 				})
-				ptmp["action"] = [
-					{
-						name:"Start queue",
-						func: ()=>{
-							log("tableAction act:"+"processqueue",true);
-							fetchApiData({type:"processqueue"})
-						}
-					},
-					{
-						name:"Stop queue",
-						func: ()=>{
-							log("tableAction act:"+"stopqueue",true);
-							fetchApiData({type:"stopqueue"})
-						}
-					},
-					{
-						name:"Restart failed queue",
-						func: ()=>{
-							log("tableAction act:"+"processfailedqueue",true);
-							fetchApiData({type:"processfailedqueue"})
-						}
-					},
-					{
-						name:"Clear done queue",
-						func: ()=>{
-							log("tableAction act:"+"cleardonequeue",true);
-							fetchApiData({type:"cleardonequeue"})
-						}
-					},
-					{
-						name:"Clear queue",
-						func: ()=>{
-							log("tableAction act:"+"clearqueue",true);
-							fetchApiData({type:"clearqueue"})
-						}
-					},
-					{
-						name:"Clear request cache",
-						func: ()=>{
-							log("tableAction act:"+"clearcache",true);
-							fetchApiData({type:"clearcache"})
-						}
-					}
-				]
 				data.push(ptmp);
 			})
-			displayTable({data:data});
+			let action = {
+				"processqueue": {
+					name:"Start queue",
+					action: ()=>{fetchApiData({type:"processqueue"})}
+				},
+				"stopqueue": {
+					name:"Stop queue",
+					action: ()=>{fetchApiData({type:"stopqueue"})}
+				},
+				"processfailedqueue": {
+					name:"Restart failed queue",
+					action: ()=>{fetchApiData({type:"processfailedqueue"})}
+				},
+				"cleardonequeue": {
+					name:"Clear done queue",
+					action: ()=>{fetchApiData({type:"cleardonequeue"})}
+				},
+				"clearqueue": {
+					name:"Clear queue",
+					action: ()=>{fetchApiData({type:"clearqueue"})}
+				},
+				"clearcache": {
+					name:"Clear request cache",
+					action: ()=>{fetchApiData({type:"clearcache"})}
+				}
+			}
+			displayTable({data:data,moreaction:action});
 			break;
 		}
 	}
