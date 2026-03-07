@@ -591,7 +591,7 @@ if(arg["value"]!=""){
 			name:"Download chapter",
 			func:()=>{
 				log("tableAction act:"+"dlchapter"+" val:"+e["chapterid"],true);
-				fetchApiData({type:"dlchapter",valueObj:{type:"dlchapter",id:e["chapterid"],serie:e["serieid"]}})
+				fetchApiData({type:"dlchapter",valueObj:{type:"dlchapter",id:e["chapterid"],serie:e["serieid"],provider:e["provider"]}})
 			}
 		},
 	];return e});
@@ -666,7 +666,8 @@ if(checkInput["status"]=="failed"){
 }
 arg=checkInput["data"]["normal"];
 if(arg["value"]==""){
-	const searchValue = await formWindow({title:"Search",form:[{id:"value",name:"search",type:"text"},{id:"provider",name:"provider",type:"select",value:"mangadex"}]});
+	const provider = await fetchApiData({type:"getproviderlist",valueObj:{type:"getproviderlist"}})
+	const searchValue = await formWindow({title:"Search",form:[{id:"value",name:"search",type:"text"},{id:"provider",name:"provider",type:"select",value:provider.sort().join(",")}]});
 	if(searchValue["status"]=="success"){
 		searchValue["data"]["type"]="search";
 		const url = new URL(location);

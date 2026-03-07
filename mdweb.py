@@ -119,8 +119,8 @@ def sendMessage(data, msgType="text", timestamp=datetime.fromisoformat(datetime.
 
 class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 	def __init__(self, *args, **kwargs):
-		self.web_dir = os.path.join(base.getInfo("scriptLocation"), 'web')
-		super().__init__(*args, directory=self.web_dir, **kwargs)
+		self.webDir = os.path.join(base.getInfo("scriptLocation"), 'web')
+		super().__init__(*args, directory=self.webDir, **kwargs)
 
 	def send_header(self, keyword, value):
 		if keyword.lower() in ['server', 'date', 'last-modified']:
@@ -132,6 +132,18 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 		super().end_headers()
 
 	def do_GET(self):
+		if len(userList)<1 and (self.path.startswith('/web/') or self.path == '/') and not self.path.startswith('/web/setup.html'):
+			self.send_response(302)
+			self.send_header('Location', '/web/setup.html')
+			self.end_headers()
+			return
+		
+		if len(userList)>0 and self.path.startswith('/web/setup.html'):
+			self.send_response(302)
+			self.send_header('Location', '/web/')
+			self.end_headers()
+			return
+		
 		if self.path in ['/web', '/web/index', '/web/index.htm', '/web/index.html', '/web/index.php', '/web/index.aspx']:
 			self.send_response(302)
 			self.send_header('Location', '/web/')
@@ -140,9 +152,9 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 
 		if not self.path.startswith('/api') and not self.path.endswith('/') and self.path.count('.') == 0:
 			loggedLocal(self.path)
-			potential_dir = os.path.join(self.web_dir, self.path)
+			potentialDir = os.path.join(self.webDir, self.path)
 			loggedLocal(self.path)
-			if os.path.isdir(potential_dir):
+			if os.path.isdir(potentialDir):
 				self.send_response(302)
 				loggedLocal(self.path)
 				self.send_header('Location', self.path + '/')
@@ -249,7 +261,7 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 
 		queryParams = parse_qs(urlparse(self.path).query)
 		queryType = ",".join(queryParams["type"]) if "type" in queryParams else "na"
-		validType = ["ping","search","knownseries","knownserieschapter","knowngroups","getsettings","updateserie","setsettings","addserie","dllast","updatechapter","updateanddllast","updatecover","dlchapter","processqueue","processfailedqueue","stopqueue","clearqueue","cleardonequeue","clearcache","updateallserieschapter","stop","restart"]
+		validType = ["ping","search","knownseries","knownserieschapter","knowngroups","getsettings","updateserie","setsettings","addserie","dllast","updatechapter","updateanddllast","updatecover","dlchapter","processqueue","processfailedqueue","stopqueue","clearqueue","cleardonequeue","clearcache","updateallserieschapter","getproviderlist","stop","restart"]
 		if self.path.startswith('/api') and self.authenticate() and queryType in validType:
 			self.send_response(200)
 			self.send_header('Content-type', 'application/json')
@@ -268,20 +280,47 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 			return
 
 	def do_POST(self):
+		global userList
+		if self.path == '/api/setup':
+			if len(userList)<1:
+				contentLength = int(self.headers['Content-Length'])
+				postData = self.rfile.read(contentLength).decode('utf-8')
+				data = dict(parse_qsl(postData))
+
+				username = data.get('username')
+				password = base.hashPassword(data.get('password'))
+
+				userList = {username: password}
+				from src.base import Process
+				resp = Process(base.logged).setSettings(json.dumps([{"id":"webUser","value":json.dumps(userList)}]),False)
+				clientIP = self.client_address[0]
+				userAgent = self.headers.get('User-Agent', '')
+				resp["token"] = generateToken(username, clientIP, userAgent)
+
+				self.send_response(200)
+				self.end_headers()
+				self.wfile.write(bytes(json.dumps(resp), encoding='utf8'))
+				return
+			else:
+				self.send_response(401)
+				self.end_headers()
+				self.wfile.write(b'{"error": "Unauthorized"}')
+				return
+
 		if self.path == '/api/login':
-			content_length = int(self.headers['Content-Length'])
-			post_data = self.rfile.read(content_length).decode('utf-8')
-			data = dict(parse_qsl(post_data))
+			contentLength = int(self.headers['Content-Length'])
+			postData = self.rfile.read(contentLength).decode('utf-8')
+			data = dict(parse_qsl(postData))
 
 			username = data.get('username')
 			password = data.get('password')
 
 			stored_password = userList.get(username)
-			client_ip = self.client_address[0]
-			user_agent = self.headers.get('User-Agent', '')
+			clientIP = self.client_address[0]
+			userAgent = self.headers.get('User-Agent', '')
 			
 			if stored_password and base.verifyPassword(stored_password, password):
-				token = generateToken(username, client_ip, user_agent)
+				token = generateToken(username, clientIP, userAgent)
 				response_data = {"token": token}
 				self.send_response(200)
 				self.send_header('Content-type', 'application/json')
@@ -381,6 +420,8 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 			responseData = mdmain.getAppBG()
 		elif "updateallserieschapter" == requestType:
 			responseData = mdmain.checkAllSeriesChapter()
+		elif "getproviderlist" == requestType:
+			responseData = base.getInfo("provider")
 		elif "progress" == requestType:
 			responseData["data"] = progress.to_dict()
 		elif "processqueue" == requestType:

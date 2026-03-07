@@ -10,8 +10,6 @@ base = Base()
 checkArg = base.checkArg
 request = base.requestGet
 queryDB = base.queryDB
-updateDB = base.updateDB
-insereplaceDB = base.insereplaceDB
 
 class mangadex(ModuleTemplate):
 	name = "mangadex"
@@ -41,7 +39,7 @@ class mangadex(ModuleTemplate):
 		for d in data:
 			author = []
 			artist = []
-			data = {"serieid":d["id"], "name":"", "authorid":"", "author":"", "artistid":"", "artist":"", "provider":"mangadex"}
+			data = {"serieid":d["id"], "name":"", "authorid":"", "author":"", "artistid":"", "artist":"", "provider":self.name}
 			for t in d["attributes"]["title"]:
 				data["name"] = d["attributes"]["title"][t]
 			for a in d["relationships"]:
@@ -76,7 +74,7 @@ class mangadex(ModuleTemplate):
 		out["serie_original"] = next(iter(manga["attributes"]["title"].values()))
 		out["serie"] = out["serie_original"]
 		out["serie_force"] = ""
-		fname = queryDB(select=["forceName","name"],table=["series"],where={"id":serieid})
+		fname = queryDB(select=["forceName","name"],table=["series"],where={"id":serieid,"source":self.name})
 		if fname:
 			out["serie"] = fname[0]["name"]
 			if fname[0]["forceName"] != None and fname[0]["forceName"] != "":
@@ -158,7 +156,7 @@ class mangadex(ModuleTemplate):
 		args=checkInput["data"]["normal"]
 
 		out = super().getAuthorInfo(authorid)
-		authordb = queryDB(select=["id"],table=["author"],where={"id":args["id"]})
+		authordb = queryDB(select=["id"],table=["author"],where={"id":args["id"],"source":self.name})
 		if len(authordb) > 0 and args["id"] == authordb[0]["id"]:
 			return 0
 		else:
@@ -170,6 +168,7 @@ class mangadex(ModuleTemplate):
 
 				out["id"] = args["id"]
 				out["name"] = data["attributes"]["name"]
+				out["provider"] = self.name
 			else:
 				self.logged("[getAuthorInfo] not ok:",r["status"])
 		return out

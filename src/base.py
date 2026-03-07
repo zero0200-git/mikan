@@ -247,7 +247,7 @@ class Base:
 					if "scriptLocation" == v:
 						Base._baseVars[v] = os.path.abspath(os.path.dirname(sys.argv[0]))
 					if "version" == v:
-						Base._baseVars[v] = "1.3.1"
+						Base._baseVars[v] = "1.4.0"
 					if "configFile" == v:
 						Base._baseVars[v] = os.getenv("MIKAN_CONFIG_FILE") if os.getenv("MIKAN_CONFIG_FILE") != None else Base._baseVars["scriptLocation"]+'/config.ini'
 					if "config" == v:
@@ -1141,38 +1141,7 @@ class Process:
 				mod.loadModule(args["provider"], logged=self.logged)
 				author = mod.getAuthorInfo(args["id"])
 				if author["status"] == 200:
-					self.base.insereplaceDB(table=["author"],values={"id":author["id"], "name":author["name"], "favorite":"0"})
-					status = f"Added: {args["id"]}"
-				else:
-					status = f"Failed to add: {args["id"]} ({author["status"]})"
-
-		self.logged(status)
-		return {"status":status}
-
-	def addGroup(self, args:dict) -> dict:
-		checkInput = self.base.checkArg({
-			"input":args,
-			"context":[
-				{"var":"provider", "type":str, "req":True},
-				{"var":"id", "type":str, "req":True}
-			]
-		})
-		if checkInput["status"]=="failed": raise Exception(checkInput["data"]["msg"])
-		args=checkInput["data"]["normal"]
-
-		status=""
-		self.logged(f"Adding: {args["id"]}")
-
-		authordb = self.base.queryDB(select=["id"],table=["author"],where={"id":args["id"]})
-		if len(authordb) > 0 and args["id"] == authordb[0]["id"]:
-			status=f"Already added: {args["id"]}"
-		else:
-			if args["provider"] in self.base.getInfo("provider"):
-				mod = Modules(self.logged)
-				mod.loadModule(args["provider"], logged=self.logged)
-				author = mod.getAuthorInfo(args["id"])
-				if author["status"] == 200:
-					self.base.insereplaceDB(table=["author"],values={"id":author["id"], "name":author["name"], "favorite":"0"})
+					self.base.insereplaceDB(table=["author"],values={"id":author["id"], "name":author["name"], "source":author["provider"], "favorite":"0"})
 					status = f"Added: {args["id"]}"
 				else:
 					status = f"Failed to add: {args["id"]} ({author["status"]})"
@@ -1600,7 +1569,7 @@ class Process:
 			groupDB = [gdb["id"] for gdb in self.base.queryDB(select=["id"],table=["tgroup"],where={"id":[g["id"] for g in group]},whereopt="or")]
 			for g in group:
 				if g["id"] not in groupDB:
-					self.base.insereplaceDB(table=["tgroup"],values={"id":g["id"], "name":g["name"], "ignore":"0", "fake":g["fake"], "deleted":"0"})
+					self.base.insereplaceDB(table=["tgroup"],values={"id":g["id"], "name":g["name"], "source":args["provider"], "ignore":"0", "fake":g["fake"], "deleted":"0"})
 					fkGroup.add(g["id"]) if g["fake"] == "1" else None
 			if not set(data["groupid"].split(",")).isdisjoint(igGroup):
 				self.logged(f"Ignore chapter {data["chapter"]} from {data["group"]} (ignore)")
@@ -1635,7 +1604,7 @@ class Process:
 						self.progress.updatelist(progressInfoChapter)
 				else:
 					p["data"]["downloaded"] = False
-					self.base.insereplaceDB(table=["chapter"], values={"id":p["data"]["id"], "series":dataSerie["id"], "title":p["data"]["title"] if p["data"]["title"] is not None else "", "volume":p["data"]["volume"] if p["data"]["volume"] is not None else "", "chapter":p["data"]["chapter"], "tgroup":p["data"]["groupid"] if "groupid" in p["data"] else "", "language":p["data"]["lang_short"], "time":datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "got":"0"})
+					self.base.insereplaceDB(table=["chapter"], values={"id":p["data"]["id"], "series":dataSerie["id"], "source":args["provider"], "title":p["data"]["title"] if p["data"]["title"] is not None else "", "volume":p["data"]["volume"] if p["data"]["volume"] is not None else "", "chapter":p["data"]["chapter"], "tgroup":p["data"]["groupid"] if "groupid" in p["data"] else "", "language":p["data"]["lang_short"], "time":datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "got":"0"})
 					if args["toqueue"] == "yes":
 						progressInfoChapter = progressInfo.copy()
 						progressInfoChapter.update({
@@ -1658,10 +1627,19 @@ class Process:
 		status = "get all chapter info success"
 		return {"status":status}
 
-	def setSettings(self,value):
+	def setSettings(self,value,user=True):
 		settingsList = json.loads(value)
+		settingsUser = self.base.queryDB(select=["key"],table=["settings"],where={"user":"1"})
 		for setting in settingsList:
-			self.base.updateDB(table=["settings"], values={"value":setting["value"]}, where={"key":setting["id"]})
+			if user == False:
+				self.base.updateDB(table=["settings"], values={"value":setting["value"]}, where={"key":setting["id"]})
+			else:
+				if setting["id"] in settingsUser:
+					self.base.updateDB(table=["settings"], values={"value":setting["value"]}, where={"key":setting["id"]})
+				else:
+					self.base.initInfo(["settings"],True)
+					self.logged("Cannot save setting \""+setting["id"]+"\": Not allow")
+					return {"status":"Cannot save setting \""+setting["id"]+"\": Not allow"}
 		self.base.initInfo(["settings"],True)
 
 		return {"status":"Saved settings"}
@@ -1811,8 +1789,8 @@ class View:
 		args=checkInput["data"]["normal"]
 
 		out = []
-		for d in self.base.queryDB(select=["chapter.series AS serieid", "chapter.id AS chapterid", "chapter.title AS name", "chapter.chapter AS chapter", "chapter.volume AS volume", "chapter.got AS dl", "chapter.tgroup AS tgroupid", "tgroup.name AS tgroup", "chapter.time AS time"], table=["chapter LEFT JOIN tgroup ON chapter.tgroup = tgroup.id"], where={"series": args["id"]}):
-			out.append({"serieid": d["serieid"], "chapterid": d["chapterid"], "name": d["name"], "chapter": d["chapter"], "volume": d["volume"], "saved": "true" if d["dl"]==1 else "false" , "tgroupid": d["tgroupid"], "tgroup": d["tgroup"] if d["tgroup"]!=None else "", "check": d["time"]})
+		for d in self.base.queryDB(select=["chapter.series AS serieid", "chapter.id AS chapterid", "chapter.title AS name", "chapter.chapter AS chapter", "chapter.volume AS volume", "chapter.got AS dl", "chapter.tgroup AS tgroupid", "tgroup.name AS tgroup", "chapter.time AS time", "chapter.source AS source"], table=["chapter LEFT JOIN tgroup ON chapter.tgroup = tgroup.id"], where={"series": args["id"]}):
+			out.append({"serieid": d["serieid"], "chapterid": d["chapterid"], "name": d["name"], "chapter": d["chapter"], "volume": d["volume"], "saved": "true" if d["dl"]==1 else "false" , "tgroupid": d["tgroupid"], "tgroup": d["tgroup"] if d["tgroup"]!=None else "", "check": d["time"], "provider": d["source"]})
 		return out
 
 	def knownGroups(self) -> list:

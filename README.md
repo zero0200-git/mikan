@@ -7,6 +7,7 @@ A web GUI manga downloader written in Python using only the standard library
     <summary>Supported Sources</summary>
 
 * ### Mangadex
+* ### Weebdex
 </details>
 
 <details>
