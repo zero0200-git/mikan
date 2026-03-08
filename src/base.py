@@ -247,7 +247,7 @@ class Base:
 					if "scriptLocation" == v:
 						Base._baseVars[v] = os.path.abspath(os.path.dirname(sys.argv[0]))
 					if "version" == v:
-						Base._baseVars[v] = "1.4.0"
+						Base._baseVars[v] = "1.4.1"
 					if "configFile" == v:
 						Base._baseVars[v] = os.getenv("MIKAN_CONFIG_FILE") if os.getenv("MIKAN_CONFIG_FILE") != None else Base._baseVars["scriptLocation"]+'/config.ini'
 					if "config" == v:
@@ -1629,7 +1629,7 @@ class Process:
 
 	def setSettings(self,value,user=True):
 		settingsList = json.loads(value)
-		settingsUser = self.base.queryDB(select=["key"],table=["settings"],where={"user":"1"})
+		settingsUser = [k["key"] for k in self.base.queryDB(select=["key"],table=["settings"],where={"user":"1"})]
 		for setting in settingsList:
 			if user == False:
 				self.base.updateDB(table=["settings"], values={"value":setting["value"]}, where={"key":setting["id"]})
