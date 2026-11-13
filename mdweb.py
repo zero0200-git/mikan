@@ -1,4 +1,5 @@
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+import ipaddress
 import signal
 from socketserver import ThreadingMixIn
 import ssl
@@ -20,8 +21,8 @@ logc = Log()
 logc.web = False
 loggedLocal = logc.logged
 config = base.getInfo("config")
-userList = json.loads(base.getInfo("settings")["webUser"])
-progress = base.getInfo("progress")
+userList:dict
+progress:Progress
 clientsLock = threading.Lock()
 svAddress = config["host"]
 svPort = config["port"]
@@ -122,6 +123,9 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 		self.webDir = os.path.join(base.getInfo("scriptLocation"), 'web')
 		super().__init__(*args, directory=self.webDir, **kwargs)
 
+	def log_message(self, format, *args):
+		loggedLocal(f"{self.getIP()} {format%args}")
+    
 	def send_header(self, keyword, value):
 		if keyword.lower() in ['server', 'date', 'last-modified']:
 			return
@@ -360,6 +364,16 @@ class SecureHTTPRequestHandler(SimpleHTTPRequestHandler):
 			self.wfile.write(b'{"error": "Not Found"}')
 			return
 
+	def getIP(self):
+		ip:str
+		if "X-Forwarded-For" in self.headers:
+			ip = self.headers.get("X-Forwarded-For").replace(" ", "").split(",")[0]
+		try:
+			ip = str(ipaddress.ip_address(ip))
+		except:
+			ip = self.client_address[0]
+		return ip
+
 	def authenticate(self):
 		auth_header = self.headers.get('Authorization')
 		if not auth_header or not auth_header.startswith('Bearer '):
@@ -481,7 +495,10 @@ def startServer():
 		context.load_cert_chain(certfile=svCert, keyfile=svCertKey)
 		
 		base.checkDB()
-		
+		global userList,progress
+		userList = json.loads(base.getInfo("settings")["webUser"])
+		progress = base.getInfo("progress")
+
 		httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
 		Log.web = True
 		Progress.web = True

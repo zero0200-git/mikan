@@ -4,9 +4,9 @@ from functools import wraps
 from src.base import Base, Log, View, Process
 
 class MDMain:
-	logged:Log|Callable = None
-	def __init__(self, logged:Log|Callable=None) -> None:
-		self.logged = logged if logged != None else Base().logged if isinstance(self.logged,Callable) != True else self.logged
+	logged:Log|Callable
+	def __init__(self, logged: Log | Callable | None = None) -> None:
+		self.logged: Log | Callable = logged if logged is not None else Base().logged
 		self.base = Base(self.logged)
 
 	def __getattribute__(self, name):
@@ -26,8 +26,8 @@ class MDMain:
 	def search(self,args):
 		return View(logged=self.logged).searchSerie(args)
 
-	def knownSeriesChapter(self,serieid):
-		return View(logged=self.logged).knownSeriesChapter({"id":serieid})
+	def knownSeriesChapter(self,seriesid):
+		return View(logged=self.logged).knownSeriesChapter({"seriesid":seriesid})
 
 	def knownSeries(self):
 		return View(logged=self.logged).knownSeries()

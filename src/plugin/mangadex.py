@@ -4,14 +4,14 @@ import re
 from typing import Callable
 import urllib.parse
 from src.base import Base
-from src.ModuleTemplate import ModuleTemplate
+from src.PluginTemplate import Plugin
 
 base = Base()
 checkArg = base.checkArg
 request = base.requestGet
 queryDB = base.queryDB
 
-class mangadex(ModuleTemplate):
+class mangadex(Plugin):
 	name = "mangadex"
 	def __init__(self,logged:Callable|None=None,progress:Callable|None=None):
 		self.logged = logged if logged != None else base.logged

@@ -31,6 +31,7 @@ body {
 	overflow: hidden;
 	background-size: cover;
 	background-position: center;
+	position: relative;
 }
 #app {
 	display: flex;
@@ -60,7 +61,7 @@ button,input,select {
 button {
 	display: flex;
 	justify-content: center;
-    align-items: center;
+	align-items: center;
 	padding: calc(var(--padding)/5*4);
 }
 button > * {
@@ -94,15 +95,28 @@ header div {
 	align-content: center;
 }
 #container {
+	--menu: calc(10% + 6rem);
 	display: flex;
 	flex-direction: row;
 	justify-content: space-between;
 	height: 100%;
 	overflow: hidden;
+	position: relative;
+}
+#container > #navbgblur {
+	display: block;
+	background: transparent;
+	backdrop-filter: blur(0);
+	height: 100%;
+	width: 100%;
+	position: absolute;
+	z-index: 1;
+	border-radius: var(--round);
+	transform: translateX(-100%);
 }
 #container > * {
 	display: flex;
-    flex-direction: column;
+	flex-direction: column;
 }
 #container > * > * {
 	margin: var(--margin);
@@ -110,7 +124,7 @@ header div {
 	border-radius: var(--round);
 	background: var(--backgroundEle);
 	backdrop-filter: blur(var(--blur));
-    display: flex;
+	display: flex;
 }
 #container > * > .empty{
 	height: 0;
@@ -122,16 +136,35 @@ header div {
 	flex-grow: 1;
 }
 #container > .left {
-	min-width: calc(10% + 6rem);
-	width: calc(10% + 6rem);
+	flex: 0 0 var(--menu);
+	margin-left: 0;
 }
-#container > .left.hide {
+#container.hidemenu > .left {
 	min-width: 0;
 	width: 0;
 }
-#container > .left.hide * {
-	margin: 0;
-	padding: 0;
+#container.hidemenu > .left {
+	margin-left: calc(-1 * var(--menu));
+}
+@media (width < 36rem) {
+	#container > .left {
+		position: absolute;
+		width: var(--menu);
+		z-index: 1;
+		width: 100%;
+		height: 100%;
+	}
+	#container > .left > #serieCover {
+		max-height: 28vh;
+	}
+	#container.hidemenu > .left {
+		transform: translateX(-100%);
+		width: 100%;
+	}
+	#container:not(.hidemenu) > #navbgblur {
+		backdrop-filter: blur(calc(var(--blur)/5));
+		transform: translateX(0);
+	}
 }
 nav {
 	overflow: auto;
@@ -188,7 +221,7 @@ svg {
 	min-height: 6rem;
 	overflow: hidden;
 	flex-grow: 1;
-    flex-direction: column;
+	flex-direction: column;
 }
 #log>div:nth-child(1){
 	border-bottom: 1px solid;
@@ -350,6 +383,30 @@ svg {
 #content[data-display-type=table] *[data-select="true"] {
 	text-decoration:underline;
 }
+#content[data-display-type="settings"] {
+	display: flex;
+	flex-direction: column;
+	overflow: auto;
+	padding: var(--padding);
+}
+#content[data-display-type="settings"] > * > [data-name] {
+	font-size: 1.2rem;
+	margin-top: var(--margin);
+	padding: var(--padding);
+}
+#content[data-display-type="settings"] > * > [data-input] {
+	margin-bottom: var(--margin);
+	padding: var(--padding);
+	field-sizing: content;
+}
+#content[data-display-type="settings"] > *:last-child {
+	margin-top: calc(var(--margin) *8);
+}
+@media (width < 36rem) {
+	#content[data-display-type="settings"] > * > [data-input] {
+		width: 100%;
+	}
+}
 #context > .context{
 	position: fixed;
 	overflow-y: auto;
@@ -386,11 +443,33 @@ svg {
 .context > button:hover, .context > button:focus {
 	background: var(--backgroundEle);
 }
+#form {
+	position: absolute;
+	background: var(--backgroundEle);
+	right: 50vw;
+	left: 50vw;
+	top: 20vh;
+	bottom: 80vh;
+	max-width: 0;
+	max-height: 0;
+	border-radius: var(--round);
+	pointer-events: none;
+}
+#form.active {
+	bottom: 0;
+	left: 0;
+	right: 0;
+	top: 0;
+	max-width: 100vw;
+	max-height: 100vh;
+	border-radius: 0;
+	pointer-events: auto;
+}
 .progressCon{
 	background: #333;
 	border-radius: var(--round);
 	overflow: hidden;
-    flex-basis: 100%;
+	flex-basis: 100%;
 }
 .progressCon > .progress{
 	min-height: 1rem;
@@ -420,6 +499,6 @@ svg {
 	overflow: auto;
 	flex-shrink: 0;
 	scroll-snap-type: y mandatory;
-    flex-wrap: wrap;
-    flex-direction: row;
+	flex-wrap: wrap;
+	flex-direction: row;
 }

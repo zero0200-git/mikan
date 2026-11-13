@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en" style="font-size: 18px;">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+	<title>Mikan Web Client</title>
+</head>
+<body><div class="loading"style="position:fixed;background:#000;top:0;bottom:0;left:0;right:0;z-index:10000;text-align:center;">Loading ...<script>load=()=>{document.removeEventListener("DOMContentLoaded",load);load=undefined;setTimeout(function(){document.querySelector(".loading").remove()},600)};document.addEventListener("DOMContentLoaded",load)</script></div>
+	<div id="app">
+		<header style="display:flex;flex-direction:column;">
+			<div id="title" aria-label="Mikan Web Client User Setup Title" title="Mikan Web Client User Setup" style="margin: auto;">🍊 Mikan Web Client User Setup</div>
+		</header>
+		<div id="container">
+			<div class="right">
+				<div id="content" style="display:flex;flex-direction:column;">
+                    <div>WebUI Username: </div>
+                    <input id="username" type="text" aria-label="Username" title="Username"/>
+                    <div>WebUI Password: </div>
+                    <input id="password" type="password" aria-label="Password" title="Password"/>
+                </div>
+				<div id="contentBar">
+					<button id="complete" aria-label="Complete" title="Complete">Complete</button>
+					<div id="status" aria-label="status" title="status"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+    <style>
+        html:root {
+            --text: rgb(240, 240, 240);
+            --backgroundEle: rgba(0, 0, 0, 0.4);
+            --round: 0.4rem;
+            --blur: 2rem;
+            --margin: 0.16rem;
+            --padding: 0.32rem;
+        }
+        body{
+            background: linear-gradient(orange,lightgreen,orange,orange);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 90vh;
+            justify-content: center;
+        }
+        header #title{
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+        #app{
+            min-width: 20rem;
+            max-width: 60rem;
+        }
+        #app>*{
+            border-radius: var(--round);
+            color: var(--text);
+            background: var(--backgroundEle);
+            backdrop-filter: blur(var(--blur));
+            margin: calc(var(--margin)*4);
+        }
+        #app>* *{
+            border-radius: var(--round);
+            margin: calc(var(--margin)*2);
+            padding: var(--padding);
+            font-size: 1rem;
+        }
+        .content{
+            min-width: 20rem;
+            max-width: 60rem;
+        }
+        button,input,select {
+            background: var(--backgroundEle);
+            backdrop-filter: blur(var(--blur));
+            color: var(--text);
+            border-radius: var(--round);
+            border: 0.01rem solid var(--text);
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: calc(var(--padding)/5*4);
+        }
+    </style>
+    <script>
+        async function sendData(){
+            const params = new URLSearchParams();
+            params.append('username', document.querySelector("#username").value);
+            params.append('password', document.querySelector("#password").value);
+
+            const response = await fetch(window.location.origin+'/api/setup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: params.toString()
+            });
+
+            if (response.status === 200) {
+                const data = await response.json();
+                localStorage.setItem("token",data.token);
+                document.querySelector('#status').innerHTML = 'Setup successful';
+                setTimeout(()=>{window.location=window.location.origin+'/web/'},1000)
+            } else {
+                document.querySelector('#status').innerHTML = 'Setup failed';
+            }
+        }
+        document.querySelector("#complete").addEventListener("click",sendData)
+    </script>
+</body>
+</html>

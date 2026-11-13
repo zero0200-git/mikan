@@ -1,3 +1,6 @@
+import {checkArg} from "./js/checkarg.js";
+import {formWindow,formWindowInit,fetchApiData,log} from "./js/utils.js";
+
 async function login(arg){
 let checkInput = checkArg({
 	input:arg,
@@ -41,78 +44,6 @@ if (response.status === 200) {
 async function logout(){
 	localStorage.removeItem("token");
 	window.location.reload();
-}
-async function fetchApiData(arg) {
-let checkInput = checkArg({
-	input:arg,
-	context:[
-		{var:"type", type:"string", req:true},
-		{var:"valueObj", type:"object"},
-		{var:"requestType", type:"string", def:"get"}
-	]
-});
-if(checkInput["status"]=="failed"){
-	throw new Error(checkInput["data"]["msg"]);
-}
-arg=checkInput["data"]["normal"];
-
-let response;
-if(arg["requestType"].toLowerCase() == "get"){
-if(Object.keys(arg["valueObj"]).length > 0){
-let api = new URL(mikan["server"]+"/api");
-api.search = new URLSearchParams(arg["valueObj"]);
-response = await fetch(api, {
-	headers: {
-		'Authorization': `Bearer ${mikan["token"]}`
-	}
-});
-}
-else{
-response = await fetch(mikan["server"]+`/api?type=`+arg["type"], {
-	headers: {
-		'Authorization': `Bearer ${mikan["token"]}`
-	}
-});
-}
-}
-else if(arg["requestType"].toLowerCase() == "post"){
-if(Object.keys(arg["valueObj"]).length > 0){
-response = await fetch(mikan["server"]+`/api?type=`+arg["type"], {
-	method: 'POST',
-	headers: {
-		'Authorization': `Bearer ${mikan["token"]}`
-	},
-	body: JSON.stringify(arg["valueObj"])
-});
-}
-else{
-response = await fetch(mikan["server"]+`/api?type=`+arg["type"], {
-	method: 'POST',
-	headers: {
-		'Authorization': `Bearer ${mikan["token"]}`
-	}
-});
-}
-
-}
-
-if (response.status===200) {
-	mikan.login=true;
-	let data;
-	try {
-		data=(await response.json())
-	} catch {
-		data=(response.body)
-	}
-	return data;
-} else if (response.status === 401) {
-	mikan.login=false;
-	log('Authorization failed');
-	return ;
-} else {
-	log('Connection failed');
-	return ;
-}
 }
 async function serverEvent() {
 let retryCount = 0;
@@ -229,7 +160,7 @@ if(["knownseries","search","knowngroups"].includes(arg["page"])){
 else if(arg["page"]=="settings"){showSettings()}
 else if(arg["page"]=="progress"){showProgress()}
 }
-async function formWindow(arg){
+/* async function formWindow(arg){
 let def = {
 	location: document.body,
 	title: "title",
@@ -373,7 +304,11 @@ return new Promise((resolve) => {
 		setTimeout(()=>{form.remove()},400);
 	};
 });
-}
+} */
+/**
+ * @param {{data?: any[], link?: boolean, action?: object, moreaction?: object}} arg
+ * @returns {none}
+ */
 async function displayTable(arg){
 let checkInput = checkArg({
 	input:arg,
@@ -394,6 +329,7 @@ if(arg.data.length==0){
 	document.querySelector("#content").innerHTML="";
 	return
 }
+mikan.filterList={};
 mikan.moreAction = Object.assign({},arg.moreaction,mikan.moreActionDef);
 mikan.tableData = arg.data;
 await sortTable();
@@ -504,8 +440,8 @@ for (let i=0; i<arg["data"].length; i++) {
 			document.querySelectorAll("#content .data > *[data-row='"+dataCol.dataset["row"]+"']").forEach(e=>{e.dataset["select"]="true"});
 			if(typeof dataCol.dataset["serieid"]=="string"){
 				document.querySelector("#serieCover").classList.remove("empty");
-				document.querySelector("#serieCover img").src="/api?type=getcover&id="+dataCol.dataset["serieid"]+"&provider="+dataCol.dataset["provider"];
-				document.body.style.setProperty("--background", "url(/api?type=getcover&id="+dataCol.dataset["serieid"]+"&provider="+dataCol.dataset["provider"]+")");
+				document.querySelector("#serieCover img").src="/api?type=getcover&id="+dataCol.dataset["serieid"];
+				document.body.style.setProperty("--background", "url(/api?type=getcover&id="+dataCol.dataset["serieid"]+")");
 			}else{
 				document.querySelector("#serieCover").classList.add("empty");
 				document.querySelector("#serieCover img").src="";
@@ -527,9 +463,45 @@ for (let i=0; i<arg["data"].length; i++) {
 		dataSec.append(dataCol);
 		dataLoad.observe(dataCol);
 	}
-	document.querySelector("#contentBar>#sort").onclick=()=>{sortTableData({data:arg.data,link:arg.link,action:arg.action})};
-	document.querySelector("#contentBar>#filter").onclick=()=>{filterTableData()};
-	document.querySelector("#contentBar>#searchdata").oninput=(e)=>{searchTableData(e.target.value)};
+	const {updateContentBar} = await import("./js/utils.js");
+	updateContentBar(
+		{
+			searchEnable: true,
+			searchLink: searchTableData,
+			sortEnable: true,
+			sortList: Object.keys(mikan.tableData["0"]).filter(e=>e.toLowerCase()!="action"),
+			sortReturn: (e)=>{displayTable({data:arg.data,link:arg.link,action:arg.action})},
+			filterEnable: true,
+			filterList: Object.keys(mikan.tableData["0"]).filter(e=>e.toLowerCase()!="action"),
+			filterReturn: (e)=>{
+				const head = Object.keys(mikan.tableData["0"]).filter(v=>v.toLowerCase()!="action");
+				const key = head.filter(v=>v.includes("provider")||v.includes("id"));
+				const cols = head.filter(v=>v.includes("provider")||!v.includes("id"));
+				const dataList = document.querySelectorAll("#content > .data > *");
+				const filters = Object.entries(e.filterList || {}).filter(([, value])=>value!==undefined&&value!=="");
+				const rows = new Map();
+
+				dataList.forEach(rowEl=>{
+					const row = rowEl.dataset.row;
+					if(!rows.has(row)){rows.set(row, []);}
+					rows.get(row).push(rowEl);
+				});
+
+				for(const rowEls of rows.values()){
+					const matched = filters.length===0 || filters.some(([field, value])=>{
+						const re = new RegExp(value, "i");
+						return rowEls.some(rowEl=>{
+							if(key.includes(field)&&rowEl.dataset.cols===cols[0]){
+								return rowEl.dataset[field]?.search(re)>=0;
+							}
+							return cols.includes(field)&&rowEl.dataset.cols===field&&rowEl.dataset.colsdata?.search(re)>=0;
+						});
+					});
+					rowEls.forEach(rowEl=>rowEl.classList.toggle("filterHide", !matched));
+				}
+			}
+		}
+	)
 }
 const dataScroll = document.createElement("div");
 const dataScroller = document.createElement("div");
@@ -585,7 +557,6 @@ if(checkInput["status"]=="failed"){
 }
 arg=checkInput["data"]["normal"];
 if(arg["value"]!=""){
-	
 	mikan.tableData = (await fetchApiData({type:"knownserieschapter",valueObj:{type:"knownserieschapter",value:arg["value"]}}))["data"].map(e=>{e["action"]=[
 		{
 			name:"Download chapter",
@@ -638,7 +609,7 @@ if(arg["value"]!=""){
 			func: async ()=>{
 				log("tableAction act:"+"forceName"+" val:"+e["serieid"],true);
 				const info = await formWindow({title:"Force use name", form:[{id:"name",name:"force name",type:"text"}]})
-				if(info["status"]=="success"){fetchApiData({requestType:"post",type:"updateforcename",valueObj:{id:e["serieid"],provider:e["provider"],forceName:info["data"]["name"]}})}
+				if(info["status"]=="success"){fetchApiData({requestType:"post",type:"updateforcename",valueObj:{seriesid:e["serieid"],forceName:info["data"]["name"]}})}
 			}
 		},
 		{
@@ -646,7 +617,7 @@ if(arg["value"]!=""){
 			func: async ()=>{
 				log("tableAction act:"+"markH"+" val:"+e["serieid"],true);
 				const markValue = await formWindow({title:"H",form:[{id:"markh",name:"h",type:"checkbox",value:e["h"]=="true"?true:false}]});
-				if(markValue["status"]=="success"){await fetchApiData({requestType:"post",type:"markh",valueObj:{id:e["serieid"],provider:e["provider"],h: markValue["data"]["markh"]}});checkPage()}
+				if(markValue["status"]=="success"){await fetchApiData({requestType:"post",type:"markh",valueObj:{seriesid:e["serieid"],h: markValue["data"]["markh"]}});checkPage()}
 			}
 		},
 	];return e});
@@ -699,55 +670,16 @@ mikan.tableData = (await fetchApiData({type:"knowngroups"}))["data"].map(e=>({tg
 		func: async ()=>{
 			log("tableAction act:"+"markgroupproperties",true);
 			const markValue = await formWindow({title:"Group properties",form:[{id:"ignore",name:"ignore",type:"checkbox",value:e["ignore"]=="true"?true:false},{id:"fake",name:"fake",type:"checkbox",value:e["fake"]=="true"?true:false},{id:"deleted",name:"deleted",type:"checkbox",value:e["deleted"]=="true"?true:false}]});
-			if(markValue["status"]=="success"){await fetchApiData({requestType:"post",type:"knowngroupsset",valueObj:{id:e["tgroupid"],ignore:markValue["data"]["ignore"],fake:markValue["data"]["fake"],deleted:markValue["data"]["deleted"]}})}
+			if(markValue["status"]=="success"){await fetchApiData({requestType:"post",type:"knowngroupsset",valueObj:{groupid:e["tgroupid"],ignore:markValue["data"]["ignore"],fake:markValue["data"]["fake"],deleted:markValue["data"]["deleted"]}})}
 			checkPage()
 		}
 	},
 ];return e});
 displayTable({data:mikan.tableData,action:{markgroupignore:"Mark ignore group data",markgroupfake:"Mark fake group data",markgroupdeleted:"Mark deleted group data"}})
 }
-async function log(value,trance=false){
-if((trance==true&&mikan.debug==true)||trance==false){
-const date = new Date();
-const dateFormat = date.toISOString().slice(0, 10)+" "+date.toTimeString().slice(0,8);
-value="["+dateFormat+"] "+value;
-console.log(value);
-const txt=document.createElement("p");
-txt.innerHTML=value.toString();
-const logEle=document.querySelector("#log>div:nth-child(2)");
-const logEleChild=logEle.childNodes;
-if(logEleChild.length>0){
-logEle.insertBefore(txt,logEleChild[0]);
-}else{
-logEle.append(txt);
-}
-logEle.scrollTop = 0;
-}
-}
 async function showSettings(){
-let data = (await fetchApiData({type:"getsettings"}))["data"];
-data.forEach(e=>{
-	let v=e.value;
-	e.value=document.createElement("input");
-	e.value.value=v;
-})
-let save=document.createElement("button");
-save.addEventListener("click",saveSettings);
-save.innerHTML="Save";
-data.push({id:"saveSetting",name:"Save Settings",value:save});
-displayTable({data:data})
-}
-async function saveSettings(){
-const url = new URL(location);
-if("settings"==url.searchParams.get("page")){
-	let list=document.querySelectorAll("#content [data-id]:not([data-id=saveSetting]) input");
-	let data=[];
-	for (let i = 0; i < list.length; i++){
-		data.push({id:list[i].parentNode.dataset.id,value:list[i].value})
-	}
-	fetchApiData({type:"setsettings",valueObj:{type:"setsettings",value:JSON.stringify(data)}});
-	log("save settings: "+JSON.stringify(data),true)
-}
+const { displaySettings } = await import('./js/setting.js');
+displaySettings({container:document.querySelector("#content"),settingsList:(await fetchApiData({type:"getsettings"}))["data"]})
 }
 async function showProgress(){
 let progress = mikan.progress;
@@ -876,86 +808,6 @@ if(bottomSc<bottomHH){bottomPrg.scrollTop=bottomSc}
 
 if(progressNo.length > 0){bottomPrg.classList.remove("empty")}
 else{bottomPrg.classList.add("empty")}
-}
-async function sortTableData(table){
-let head = Object.keys(mikan.tableData["0"]).filter(e=>e.toLowerCase()!="action");
-let sortOld = {};
-let formSort = [];
-for(let h=0;h<head.length;h++){
-	formSort.push({
-		id: head[h],
-		type: "select",
-		value: (mikan.sortLast.includes(head[h])&&mikan.sort[head[h]]=="desc") ? "desc,asc" : "asc,desc",
-		name: head[h]
-	})
-	sortOld[head[h]] = (mikan.sortLast.includes(head[h])&&mikan.sort[head[h]]=="desc") ? "desc" : "asc";
-}
-let form = await formWindow({
-	title: "Sort by",
-	id: "sortdata",
-	form: formSort
-});
-if(form["status"]=="success"){
-	const data = form["data"];
-	for(let h=0; h<head.length; h++){
-		if(data[head[h]]!=sortOld[head[h]]){
-			if(mikan.sortLast.includes(head[h])){mikan.sortLast.splice(mikan.sortLast.indexOf(head[h]),1)}
-			mikan.sortLast.unshift(head[h]);
-			mikan.sort[head[h]]=data[head[h]];
-			displayTable(table);
-		}
-	}
-}
-}
-async function filterTableData(){
-const head = Object.keys(mikan.tableData[0]).filter(e=>e.toLowerCase()!="action");
-const filterListOld = Object.keys(mikan.filterList);
-const key = [];
-const cols = [];
-for(let v of head){
-	if(v.includes("provider")){key.push(v);cols.push(v)}
-	else if(v.includes("id")){key.push(v)}
-	else{cols.push(v)}
-}
-const dataList = document.querySelectorAll("#content > .data > *");
-let formFilter = [];
-for(let h=0;h<head.length;h++){
-	formFilter.push({
-		id: head[h],
-		type: "text",
-		value: filterListOld.includes(head[h]) ? mikan.filterList[head[h]] : "",
-		name: head[h]
-	})
-}
-let form = await formWindow({
-	title: "Filter",
-	id: "filterdata",
-	form: formFilter
-});
-if(form["status"]=="success"){
-	const data = Object.fromEntries(Object.entries(form["data"]).filter(([, v]) => v!==""));
-	mikan.filterList = data;
-	const filterList = Object.keys(data);
-	let rowIn = [];
-	for(let d=0;d<dataList.length;d++){
-		if(filterList.length<1){dataList[d].classList.remove("filterHide");continue;}
-		for(let f=0;f<filterList.length;f++){
-			const re = new RegExp(data[filterList[f]],"i");
-			if(key.includes(filterList[f])&&dataList[d].dataset[filterList[f]].search(re)>=0&&dataList[d].dataset.cols==cols[0]){
-				dataList[d].parentNode.querySelectorAll("[data-row='"+dataList[d].dataset["row"]+"']").forEach(e=>{e.classList.remove("filterHide")});
-				rowIn.push(dataList[d].dataset["row"]);
-			}
-			else if(cols.includes(filterList[f])&&dataList[d].dataset.colsdata.search(re)>=0&&dataList[d].dataset.cols==filterList[f]){
-				dataList[d].parentNode.querySelectorAll("[data-row='"+dataList[d].dataset["row"]+"']").forEach(e=>{e.classList.remove("filterHide")});
-				rowIn.push(dataList[d].dataset["row"]);
-			}
-			else if(!(rowIn.includes(dataList[d].dataset.row))){dataList[d].classList.add("filterHide");}
-		}
-	}
-} else{
-	mikan.filterList = {};
-	dataList.forEach(e=>e.classList.remove("filterHide"));
-}
 }
 async function searchTableData(value){
 if(value!=""){
@@ -1104,89 +956,8 @@ contextCon.append(contextClose);
 contextCon.querySelector("*").focus();
 contextCon.addEventListener("mouseleave",reEvt);
 }
-function checkArg(arg){
-let data = {
-	input: {},
-	context: [
-		{
-			var: "text",
-			type: "string",
-			def: "default",
-			req: false
-		}
-	]
-}
-let out = {status:"", data:{}}
-let err = (r)=>{out["status"] = "failed";out["data"]["msg"] = r;return out};
-let suc = (r,d)=>{out["status"] = "success";out["data"]["msg"] = r;out["data"]["normal"] = d;return out};
 
-if(typeof arg != "object"){return err("[checkArg] function argument not object")}
-if(!("input" in arg && "context" in arg)){return err("[checkArg] input or context not in argument")}
-if(!(Array.isArray(arg["context"]))){return err("[checkArg] context not an array")}
-if(typeof arg["input"]!="object"){arg["input"]={}}
-
-let input = arg["input"];
-let context = arg["context"];
-
-for(let i=0; i<context.length; i++){
-	let v = context[i];
-	if(typeof v!="object"){return err("[checkArg] value include context is not a object")}
-	if(!("var" in v && "type" in v)){return err("[checkArg] value include context is not complete")}
-	
-	v["type"] = v["type"].toLowerCase();
-	v["req"] = "req" in v ? Boolean(v["req"]) : false;
-	if(typeof input[v["var"]]!=v["type"]&&v["type"]!="array"&&!(typeof input[v["var"]]=="undefined"&&!(v["req"]))){
-		return err(`"${v["var"]}" is wrong type (require ${v["type"]} but received ${typeof input[v["var"]]})`)
-	}
-	if(!(Array.isArray(input[v["var"]]))&&v["type"]=="array"&&!(typeof input[v["var"]]=="undefined"&&!(v["req"]))){
-		return err(`"${v["var"]}" is wrong type (require ${v["type"]} but received ${typeof input[v["var"]]})`)
-	}
-	if(v["req"]){
-		if(!(v["var"] in input)){
-			return err(`"${v["var"]}" is require`)
-		}
-		if(v["type"]=="array"&&!(input[v["var"]].length>0)){
-			return err(`"${v["var"]}" is require but received emply array`)
-		}
-		if(v["type"]=="object"&&Object.keys(input[v["var"]]).length<0){
-			return err(`"${v["var"]}" is require but received emply object`)
-		}
-		if(v["type"]=="string"&&input[v["var"]]==""){
-			return err(`"${v["var"]}" is require but received emply string`)
-		}
-		if(v["type"]=="number"&&isNaN(input[v["var"]])){
-			return err(`"${v["var"]}" is require but received NaN (Not a Number)`)
-		}
-	}
-	if(typeof input[v["var"]]=="undefined"){
-		if(v["type"]=="array"){
-			if(Array.isArray(v["def"])){input[v["var"]]=v["def"]}
-			else{input[v["var"]] = []}
-		}
-		if(v["type"]=="object"){
-			if(typeof v["def"] == "object"){input[v["var"]]=v["def"]}
-			else{input[v["var"]] = {}}
-		}
-		if(v["type"]=="string"){
-			if(typeof v["def"] == "string"){input[v["var"]]=v["def"]}
-			else{input[v["var"]] = ""}
-		}
-		if(v["type"]=="number"){
-			if(typeof v["def"] == "number"){input[v["var"]]=v["def"]}
-			else{input[v["var"]] = 0}
-		}
-		if(v["type"]=="boolean"){
-			if(typeof v["def"] == "boolean"){input[v["var"]]=v["def"]}
-			else{input[v["var"]] = false}
-		}
-	}
-}
-return suc("[checkArg] sucess",input)
-}
-
-
-
-mikan = {
+globalThis.mikan = {
 	"sort": {chapter:"asc",name:"asc"},
 	"sortLast": ["chapter","name"],
 	"filterList": {},
@@ -1203,12 +974,13 @@ mikan = {
 		"stopserver": {name:"Stop Server", action:()=>{fetchApiData({type:"stop"})}}
 	},
 };
-load1st = ()=>{
+formWindowInit()
+globalThis.load1st = ()=>{
 	loadToken()
 	checkPage()
 	serverEvent()
 }
-checklogin1st = async() => {
+globalThis.checklogin1st = async() => {
 	try{
 		if(localStorage.getItem("token")!=null) {
 			let r = await fetch(mikan["server"]+'/api?type=ping', {
@@ -1225,13 +997,13 @@ checklogin1st = async() => {
 };
 
 document.querySelector("header > #menuToggle").addEventListener("click", () => {
-	document.querySelector("#container > .left").classList.toggle("hide");
+	document.querySelector("#container").classList.toggle("hidemenu");
 });
 document.querySelectorAll("nav > button").forEach(n => {
 	const url = new URL(location);
 	url.searchParams.set("page", n.value);
 	url.searchParams.set("value", "");
-	n.addEventListener("click",()=>{history.pushState({page:n.value,value:""}, "", url);checkPage()})
+	n.addEventListener("click",()=>{history.pushState({page:n.value,value:""}, "", url);checkPage();if(window.matchMedia('(width < 48rem)').matches){document.querySelector("#container").classList.add("hidemenu")}})
 });
 document.querySelector("#more").addEventListener("click", async () => {
 	contextMenu({id:"more",location:document.querySelector("#more"),context:mikan.moreAction})

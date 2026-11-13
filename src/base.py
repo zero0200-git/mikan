@@ -20,87 +20,69 @@ import urllib
 import urllib.request
 import urllib.parse
 import urllib.error
-from src.ModuleTemplate import ModuleTemplate
+from src.PluginTemplate import PluginTemplate
+from src.logger import Log
 
-
-class Log:
-	web = False
-	def logged(self, *value) -> None:
-		value = list(value)
-		for i in range(len(value)):
-			value[i] = str(value[i])
-		time = datetime.fromisoformat(datetime.now().isoformat()).strftime("%Y-%m-%d %H:%M:%S")
-		text = f"[{time}] {"".join(value)}"
-		print(text)
-		logDir = Base().getInfo("scriptLocation")+"/log"
-		logFile = logDir+"/"+datetime.fromisoformat(datetime.now().isoformat()).strftime("%Y-%m-%d")+".log"
-		if os.path.isdir(logDir) != True:
-			os.makedirs(logDir,exist_ok=True)
-		try:
-			with open(logFile, "a") as file:
-				file.write(text+"\n")
-			if self.web:
-				from mdweb import sendMessage
-				sendMessage("".join(value), timestamp=time)
-		except Exception as e:
-			print(traceback.format_exc())
-			print(f"Error writing log to {logFile}: {e}")
-
-class Modules(ModuleTemplate):
-	_allModule:dict = {}
+class Plugins(PluginTemplate):
+	_allPlugin:dict = {}
 	def __init__(self, logged:Log|Callable|None = None) -> None:
-		self.logged = logged if logged != None else Base().logged
-		self._loadedModule: ModuleTemplate|None = None
-		moduleDir = Base().getInfo("scriptLocation") + "/src/module/"
-		moduleList = [os.path.join(moduleDir,f) for f in os.listdir(moduleDir) if os.path.isfile(os.path.join(moduleDir,f))]
-		for modulePath in moduleList:
-			moduleName = os.path.basename(modulePath)[:-3]
-			for name,classFunc in inspect.getmembers(importlib.import_module("src.module."+moduleName),inspect.isclass):
-				if issubclass(classFunc,ModuleTemplate) and hasattr(classFunc,"name") and classFunc.name != ModuleTemplate.name:
-					self._allModule.update({classFunc.name:classFunc})
+		self.logged = logged if logged is not None else Base().logged
+		self._loadedPlugin: PluginTemplate|None = None
+		pluginDir = Base().getInfo("scriptLocation") + "/src/plugin/"
+		pluginList = [os.path.join(pluginDir,f) for f in os.listdir(pluginDir) if os.path.isfile(os.path.join(pluginDir,f))]
+		for pluginPath in pluginList:
+			pluginName = os.path.basename(pluginPath)[:-3]
+			for name,classFunc in inspect.getmembers(importlib.import_module("src.plugin."+pluginName),inspect.isclass):
+				if issubclass(classFunc,PluginTemplate) and hasattr(classFunc,"name") and classFunc.name != PluginTemplate.name:
+					self._allPlugin.update({classFunc.name:classFunc})
 
-	def getModuleList(self) -> list:
-		return list(self._allModule.keys())
+	def getPluginList(self) -> list:
+		return list(self._allPlugin.keys())
 
-	def _loadedModuleCheck(self) -> bool:
-		if isinstance(self._loadedModule, ModuleTemplate):
+	def _loadedPluginCheck(self) -> bool:
+		if isinstance(self._loadedPlugin, PluginTemplate):
 			return True
 		else:
-			self.logged("module is not loaded")
-			self.logged("please load module using \"loadModule\" function")
+			self.logged("plugin is not loaded")
+			self.logged("please load plugin using \"loadPlugin\" function")
 			return False
 
-	def loadModule(self, moduleName:str, **args) -> None:
-		if moduleName in self._allModule:
-			self._loadedModule = self._allModule[moduleName](**args)
-			self.logged("load module: ",moduleName," success")
+	def loadModule(self, pluginName:str, **args) -> None:
+		if pluginName in self._allPlugin:
+			self._loadedPlugin = self._allPlugin[pluginName](**args)
+			self.logged("load plugin: ",pluginName," success")
 		else:
-			self.logged("cannot load module: ",moduleName)
+			self.logged("cannot load plugin: ",pluginName)
 
 	def search(self, keyword:str) -> list:
-		if self._loadedModuleCheck() == False:
+		if not isinstance(self._loadedPlugin, PluginTemplate):
+			self._loadedPluginCheck()
 			return super().search(keyword)
-		return self._loadedModule.search(keyword)
+		return self._loadedPlugin.search(keyword)
 
 	def getSerieInfo(self, serieid:str) -> dict:
-		if self._loadedModuleCheck() == False:
+		if not isinstance(self._loadedPlugin, PluginTemplate):
+			self._loadedPluginCheck()
 			return super().getSerieInfo(serieid)
-		return self._loadedModule.getSerieInfo(serieid)
+		return self._loadedPlugin.getSerieInfo(serieid)
 
 	def getAuthorInfo(self, authorid:str) -> dict:
-		if self._loadedModuleCheck() == False:
-			return super().getAuthorInfo(self, authorid)
-		return self._loadedModule.getAuthorInfo(authorid)
+		if not isinstance(self._loadedPlugin, PluginTemplate):
+			self._loadedPluginCheck()
+			return super().getAuthorInfo(authorid)
+		return self._loadedPlugin.getAuthorInfo(authorid)
 
 	def getChapterImg(self, chapterid:str) -> list:
-		if self._loadedModuleCheck() == False:
-			return super().getChapterImg(self, chapterid)
-		return self._loadedModule.getChapterImg(chapterid)
+		if not isinstance(self._loadedPlugin, PluginTemplate):
+			self._loadedPluginCheck()
+			return super().getChapterImg(chapterid)
+		return self._loadedPlugin.getChapterImg(chapterid)
 
 	def getChapterList(self, serieid:str) -> list:
-		if self._loadedModuleCheck() == False:
-			return super().getChapterList(self, serieid)
-		return self._loadedModule.getChapterList(serieid)
+		if not isinstance(self._loadedPlugin, PluginTemplate):
+			self._loadedPluginCheck()
+			return super().getChapterList(serieid)
+		return self._loadedPlugin.getChapterList(serieid)
 
 class Progress:
 	web:bool = False
@@ -110,22 +92,22 @@ class Progress:
 		self._data:dict = {}
 		self._data["update"] = {}
 		self._data["updateNo"] = []
-		for q in Base().queryDB(select=["id","parent","name","source","type","status","statusText"],table=["queue"]):
+		for q in Base().queryDB(select=["ext_id","parent_uid","name","plugin","type","status","statusText"],table=["queue"]):
 			out = {}
-			out["id"] = q["id"] if "id" in q and q["id"] is not None else "Unknown"
+			out["id"] = q["ext_id"] if "ext_id" in q and q["ext_id"] is not None else "Unknown"
 			out["name"] = q["name"] if "name" in q and q["name"] is not None else "Unknown"
 			out["status"] = q["status"] if "status" in q and q["status"] is not None else "Unknown"
-			out["parent"] = q["parent"] if "parent" in q and q["parent"] is not None else ""
-			out["provider"] = q["source"] if "source" in q and q["source"] is not None else "Unknown"
+			out["parent"] = q["parent_uid"] if "parent_uid" in q and q["parent_uid"] is not None else ""
+			out["provider"] = q["plugin"] if "plugin" in q and q["plugin"] is not None else "Unknown"
 			out["type"] = q["type"] if "type" in q and q["type"] is not None else "Unknown"
 			out["statusText"] = q["statusText"] if "statusText" in q and q["statusText"] is not None else "Unknown"
 			out["progress"] = "100" if "status" in q and q["status"] == "done" else "0"
 			out["subprogress"] = "100" if "status" in q and q["status"] == "done" else "0"
 			rmm = max(10, min(100, len(self._data["updateNo"])))
 			rmc = 0
-			while self._data["updateNo"].count(q["id"]) >= 1 and rmc < rmm: (self._data["updateNo"].remove(q["id"]) if q["id"] in self._data["updateNo"] else None); rmc += 1
-			self._data["updateNo"].insert(0,q["id"])
-			self._data["update"][q["id"]] = out
+			while self._data["updateNo"].count(q["ext_id"]) >= 1 and rmc < rmm: (self._data["updateNo"].remove(q["ext_id"]) if q["ext_id"] in self._data["updateNo"] else None); rmc += 1
+			self._data["updateNo"].insert(0,q["ext_id"])
+			self._data["update"][q["ext_id"]] = out
 
 	def __setitem__(self, key, value):
 		self._data[key] = value
@@ -147,7 +129,7 @@ class Progress:
 
 	def __len__(self):
 		return len(self._data)
-	
+
 	def send(self,data):
 		if self.web:
 			from mdweb import sendMessage
@@ -184,7 +166,7 @@ class Progress:
 		out["progress"] = data["progress"] if "progress" in data and data["progress"] is not None else "0"
 		out["subprogress"] = data["subprogress"] if "subprogress" in data and data["subprogress"] is not None else "0"
 		with self._progressLock:
-			Base().insereplaceDB(values={"id":data["id"],"parent":out["parent"],"name":out["name"],"source":out["provider"],"type":out["type"],"status":out["status"],"statusText":out["statusText"]},table=["queue"])
+			Base().insereplaceDB(values={"id":data["id"],"parent":out["parent"],"name":out["name"],"plugin":out["provider"],"type":out["type"],"status":out["status"],"statusText":out["statusText"]},table=["queue"])
 			rmm = max(10, min(100, len(self._data["updateNo"])))
 			rmc = 0
 			while self._data["updateNo"].count(data["id"]) >= 1 and rmc < rmm: (self._data["updateNo"].remove(data["id"]) if data["id"] in self._data["updateNo"] else None); rmc += 1
@@ -222,10 +204,10 @@ class Base:
 	_availableInfoReq = {"configFile":["scriptLocation"],"userList":["settings"],"headers":["version"],"headersPost":["headers"]}
 	_baseVars = {}
 	_baseVarsLock = threading.RLock()
-	logged:Log|Callable|None = None
+	logged:Log|Callable = Log().logged
 
 	def __init__(self, logged:Log|Callable|None=Log().logged) -> None:
-		self.logged:Log|Callable|None = logged if logged != None else Base.logged if isinstance(self.logged,Log) != True or isinstance(self.logged,Callable) != True else self.logged
+		self.logged: Log | Callable = logged if logged is not None else Base.logged
 
 	def initInfo(self, vars:list=[],force:bool=False) -> None:
 		check=self.checkArg({
@@ -247,7 +229,7 @@ class Base:
 					if "scriptLocation" == v:
 						Base._baseVars[v] = os.path.abspath(os.path.dirname(sys.argv[0]))
 					if "version" == v:
-						Base._baseVars[v] = "1.4.1"
+						Base._baseVars[v] = "2.0.0"
 					if "configFile" == v:
 						Base._baseVars[v] = os.getenv("MIKAN_CONFIG_FILE") if os.getenv("MIKAN_CONFIG_FILE") != None else Base._baseVars["scriptLocation"]+'/config.ini'
 					if "config" == v:
@@ -261,7 +243,7 @@ class Base:
 					if "progress" == v:
 						Base._baseVars[v] = Progress(logged=Base.logged)
 					if "provider" == v:
-						Base._baseVars[v] = Modules().getModuleList()
+						Base._baseVars[v] = Plugins().getPluginList()
 					if "headers" == v:
 						Base._baseVars[v] = {'User-Agent': f'mikan/{Base._baseVars["version"]}; ({sys.platform})'}
 					if "headersPost" == v:
@@ -400,7 +382,7 @@ class Base:
 									out["block"] = 16384
 								else:
 									out["block"] = 4096
-								
+
 								out["percent"] = out["download"] / out["size"] * 100 if out["size"] else 0
 								speed = out["speed"]
 								speedUC = 0
@@ -485,7 +467,9 @@ class Base:
 					if ": >" in spec:
 						value = f" {value}" if value else ""
 					elif spec.startswith(":>") or spec.startswith(":0"):
-						width = int(re.search(r"(\d+)", spec).group(1))
+						width_match = re.search(r"(\d+)", spec)
+						if width_match is None: continue
+						width = int(width_match.group(1))
 						if value.replace(".", "", 1).isdigit():
 							if "." in value:
 								integer_part, decimal_part = value.split(".")
@@ -545,27 +529,27 @@ class Base:
 					if v["type"] == list:
 						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
 						else: inputOut[v["var"]] = []
-					
+
 					if v["type"] == tuple:
 						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
 						else: inputOut[v["var"]] = ()
-					
+
 					if(v["type"] == dict):
 						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
 						else: inputOut[v["var"]] = {}
-					
+
 					if(v["type"] == str):
 						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
 						else: inputOut[v["var"]] = ""
-					
+
 					if(v["type"] == int):
 						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
 						else: inputOut[v["var"]] = 0
-					
+
 					if(v["type"] == float):
 						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
 						else: inputOut[v["var"]] = 0.0
-					
+
 					if(v["type"] == bool):
 						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
 						else: inputOut[v["var"]] = False
@@ -627,7 +611,7 @@ class Base:
 		db.execute('PRAGMA journal_mode=WAL;')
 		cr = db.cursor()
 		q = "UPDATE " + ", ".join(table).lower().replace("drop","").replace(";","")
-		
+
 		params = []
 		if values:
 			parts = []
@@ -678,14 +662,13 @@ class Base:
 		db.commit()
 		cr.close()
 		db.close()
-		return True
 
 	def deleteDB(self, where:dict={}, table:list=["series"], whereopt:str="AND") -> None:
 		db = sqlite3.connect(self.getInfo("config")["db_location"])
 		db.execute('PRAGMA journal_mode=WAL;')
 		cr = db.cursor()
 		q = "DELETE FROM " + ", ".join(table).lower().replace("drop","").replace(";","")
-		
+
 		params = []
 		if where:
 			parts = []
@@ -727,7 +710,8 @@ class Base:
 				"host": "''",
 				"token_valid_time": "'86400'",
 				"secret": "'your_secret_key_here'",
-				"strictlogin": 'false'
+				"strictlogin": 'false',
+				"bypass_local_login": 'true'
 			}
 		}
 
@@ -760,61 +744,110 @@ class Base:
 
 	def checkDB(self):
 		refTables = {
+			"author_ref": {
+				"author_uid": {"table":"author","col":"uid"},
+			},
+			"tgroup_ref": {
+				"tgroup_uid": {"table":"tgroup","col":"uid"},
+			},
+			"series_ref": {
+				"series_uid": {"table":"series","col":"uid"},
+			},
+			"series_author": {
+				"series_uid": {"table":"series","col":"uid"},
+				"author_uid": {"table":"author","col":"uid"},
+			},
 			"chapter": {
-				"series":     {"table":"series","col":"id"},
-				"tgroup":     {"table":"tgroup","col":"id"},
-				"source":     {"table":"series","col":"source"},
+				"series_uid": {"table":"series","col":"uid"},
+			},
+			"chapter_ref": {
+				"chapter_uid": {"table":"chapter","col":"uid"},
+			},
+			"chapter_tgroup": {
+				"chapter_uid": {"table":"chapter","col":"uid"},
+				"tgroup_uid": {"table":"tgroup","col":"uid"},
 			},
 		}
 		tables = {
 			"author": {
-				"id":         {"pri":True,  "type":"varchar", "def":""},
-				"name":       {"pri":False, "type":"varchar", "def":""},
-				"favorite":   {"pri":False, "type":"boolean", "def":""},
-				"ignore":     {"pri":False, "type":"boolean", "def":""},
-				"deleted":    {"pri":False, "type":"boolean", "def":""},
-				"source":     {"pri":True, "type":"boolean", "def":"mangadex"},
-				"alt":        {"pri":False, "type":"boolean", "def":""},
-				"altSorce":   {"pri":False, "type":"boolean", "def":""},
+				"uid":         {"pri":True,  "type":"varchar",  "def":""},
+				"name":        {"pri":False, "type":"varchar",  "def":""},
+				"ignore":      {"pri":False, "type":"boolean",  "def":0},
 			},
-			"chapter": {
-				"series":     {"pri":False, "type":"varchar", "def":""},
-				"id":         {"pri":True,  "type":"varchar", "def":""},
-				"title":      {"pri":False, "type":"varchar", "def":""},
-				"volume":     {"pri":False, "type":"varchar", "def":""},
-				"chapter":    {"pri":False, "type":"varchar", "def":""},
-				"tgroup":     {"pri":False, "type":"varchar", "def":""},
-				"language":   {"pri":False, "type":"varchar", "def":""},
-				"time":       {"pri":False, "type":"varchar", "def":""},
-				"got":        {"pri":False, "type":"boolean", "def":""},
-				"source":     {"pri":True, "type":"boolean", "def":"mangadex"},
+			"author_ref": {
+				"plugin":      {"pri":True,  "type":"varchar",  "def":"mangadex"},
+				"ext_id":      {"pri":True,  "type":"varchar",  "def":""},
+				"author_uid":  {"pri":False, "type":"varchar",  "def":None},
+				"favorite":    {"pri":False, "type":"boolean",  "def":0},
+				"deleted":     {"pri":False, "type":"boolean",  "def":0},
 			},
-			"queue": {
-				"id":         {"pri":True,  "type":"varchar", "def":""},
-				"name":       {"pri":False, "type":"varchar", "def":""},
-				"parent":     {"pri":False, "type":"varchar", "def":""},
-				"source":     {"pri":True,  "type":"varchar", "def":""},
-				"type":       {"pri":True,  "type":"varchar", "def":""},
-				"status":     {"pri":False, "type":"varchar", "def":"pending"},
-				"statusText": {"pri":False, "type":"varchar", "def":"pending"},
+			"tgroup": {
+				"uid":         {"pri":True,  "type":"varchar",  "def":""},
+				"name":        {"pri":False, "type":"varchar",  "def":""},
+				"ignore":      {"pri":False, "type":"boolean",  "def":0},
+			},
+			"tgroup_ref": {
+				"plugin":      {"pri":True,  "type":"varchar",  "def":"mangadex"},
+				"ext_id":      {"pri":True,  "type":"varchar",  "def":""},
+				"tgroup_uid":  {"pri":False, "type":"varchar",  "def":None},
+				"fake":        {"pri":False, "type":"boolean",  "def":0},
+				"deleted":     {"pri":False, "type":"boolean",  "def":0},
 			},
 			"series": {
-				"id":         {"pri":True,  "type":"varchar", "def":""},
-				"altId":      {"pri":False, "type":"varchar", "def":""},
-				"name":       {"pri":False, "type":"varchar", "def":""},
-				"lastUpdate": {"pri":False, "type":"varchar", "def":""},
-				"favorite":   {"pri":False, "type":"boolean", "def":""},
-				"forceName":  {"pri":False, "type":"varchar", "def":""},
-				"author":     {"pri":False, "type":"varchar", "def":""},
-				"artist":     {"pri":False, "type":"varchar", "def":""},
-				"image":      {"pri":False, "type":"blob",    "def":""},
-				"imageName":  {"pri":False, "type":"varchar", "def":""},
-				"fixedImage": {"pri":False, "type":"boolean", "def":""},
-				"priority":   {"pri":False, "type":"integer", "def":""},
-				"h":          {"pri":False, "type":"boolean", "def":""},
-				"lastCheck":  {"pri":False, "type":"varchar", "def":""},
-				"nameWarn":   {"pri":False, "type":"boolean", "def":""},
-				"source":     {"pri":True,  "type":"varchar", "def":"mangadex"},
+				"uid":         {"pri":True,  "type":"varchar",  "def":""},
+				"name":        {"pri":False, "type":"varchar",  "def":""},
+				"forceName":   {"pri":False, "type":"varchar",  "def":None},
+				"image":       {"pri":False, "type":"blob",     "def":None},
+				"imageName":   {"pri":False, "type":"varchar",  "def":""},
+				"fixedImage":  {"pri":False, "type":"boolean",  "def":0},
+				"priority":    {"pri":False, "type":"integer",  "def":""},
+				"h":           {"pri":False, "type":"boolean",  "def":0},
+				"nameWarn":    {"pri":False, "type":"boolean",  "def":0},
+			},
+			"series_ref": {
+				"plugin":      {"pri":True,  "type":"varchar",  "def":"mangadex"},
+				"ext_id":      {"pri":True,  "type":"varchar",  "def":""},
+				"series_uid":  {"pri":False, "type":"varchar",  "def":None},
+				"favorite":    {"pri":False, "type":"boolean",  "def":0},
+				"lastUpdate":  {"pri":False, "type":"varchar",  "def":""},
+				"lastCheck":   {"pri":False, "type":"varchar",  "def":""},
+			},
+			"series_author": {
+				"series_uid":  {"pri":True,  "type":"varchar",  "def":None},
+				"author_uid":  {"pri":True,  "type":"varchar",  "def":None},
+				"role":        {"pri":True,  "type":"varchar",  "def":"author"},
+			},
+			"chapter": {
+				"uid":         {"pri":True,  "type":"varchar",  "def":""},
+				"series_uid":  {"pri":False, "type":"varchar",  "def":None},
+				"title":       {"pri":False, "type":"varchar",  "def":""},
+				"volume":      {"pri":False, "type":"varchar",  "def":""},
+				"chapter":     {"pri":False, "type":"varchar",  "def":""},
+				"language":    {"pri":False, "type":"varchar",  "def":""},
+				"time":        {"pri":False, "type":"varchar",  "def":""},
+				"got":         {"pri":False, "type":"boolean",  "def":0},
+			},
+			"chapter_ref": {
+				"plugin":      {"pri":True,  "type":"varchar",  "def":"mangadex"},
+				"ext_id":      {"pri":True,  "type":"varchar",  "def":""},
+				"chapter_uid": {"pri":False, "type":"varchar",  "def":None},
+			},
+			"chapter_tgroup": {
+				"chapter_uid": {"pri":True,  "type":"varchar",  "def":None},
+				"tgroup_uid":  {"pri":True,  "type":"varchar",  "def":None},
+			},
+			"queue": {
+				"ext_id":      {"pri":True,  "type":"varchar",  "def":""},
+				"plugin":      {"pri":True,  "type":"varchar",  "def":"mangadex"},
+				"type":        {"pri":True,  "type":"varchar",  "def":""},
+				"name":        {"pri":False, "type":"varchar",  "def":""},
+				"parent_uid":  {"pri":False, "type":"varchar",  "def":None},
+				"status":      {"pri":False, "type":"varchar",  "def":"pending"},
+				"statusText":  {"pri":False, "type":"varchar",  "def":"pending"},
+			},
+			"merged": {
+				"old_uid":     {"pri":True,  "type":"varchar",  "def":""},
+				"new_uid":     {"pri":False, "type":"varchar",  "def":""},
 			},
 			"settings": {
 				"key":        {"pri":True,  "type":"varchar", "def":""},
@@ -822,16 +855,6 @@ class Base:
 				"value":      {"pri":False, "type":"varchar", "def":""},
 				"user":       {"pri":False, "type":"boolean", "def":""},
 				"possible":   {"pri":False, "type":"varchar", "def":""},
-			},
-			"tgroup": {
-				"id":         {"pri":True,  "type":"varchar", "def":""},
-				"name":       {"pri":False, "type":"varchar", "def":""},
-				"ignore":     {"pri":False, "type":"boolean", "def":""},
-				"fake":       {"pri":False, "type":"boolean", "def":""},
-				"deleted":    {"pri":False, "type":"boolean", "def":""},
-				"source":     {"pri":True, "type":"boolean", "def":"mangadex"},
-				"alt":        {"pri":False, "type":"boolean", "def":""},
-				"altSorce":   {"pri":False, "type":"boolean", "def":""},
 			},
 			"locks": {
 				"id":         {"pri":True,  "type":"varchar", "def":""},
@@ -841,7 +864,7 @@ class Base:
 			},
 		}
 		settings = {
-			"dbVersion":      {"name":"Database version (mikan.X)", "value":".".join(self.getInfo("version").split(".")[0:2])+".6", "user":"0", "possible":""},
+			"dbVersion":      {"name":"Database version (mikan.X)", "value":".".join(self.getInfo("version").split(".")[0:2])+".7", "user":"0", "possible":""},
 			"saveDir":        {"name":"Save location", "value":"./mikan/", "user":"1", "possible":""},
 			"saveHDir":       {"name":"Save location (H)", "value":"./mikan/h/", "user":"1", "possible":""},
 			"saveFormat":     {"name":"", "value":"Individual Images", "user":"", "possible":"Individual Images"},
@@ -868,6 +891,7 @@ class Base:
 		}
 
 		try:
+			dbv = ""
 			if os.path.isfile(self.getInfo("config")["db_location"]):
 				db = sqlite3.connect(self.getInfo("config")["db_location"])
 				db.execute('PRAGMA journal_mode=WAL;')
@@ -879,13 +903,32 @@ class Base:
 				if result is None:
 					raise AssertionError("Database version not found")
 				elif result[0] != settings["dbVersion"]["value"]:
+					dbv = result[0]
 					raise AssertionError(f"Database version mismatch (expected {settings["dbVersion"]["value"]} but found {result[0]})")
 			else:
 				raise AssertionError("Database file not found")
 		except Exception as e:
 			self.logged(f"Database verify error: {e}")
+			self.logged(traceback.format_stack())
 			try:
-				if self.getInfo("config")["db_auto_backup_update"].lower() == "true" and os.path.isfile(self.getInfo("config")["db_location"]) and os.access(os.path.dirname(self.getInfo("config")["db_location"]), os.W_OK):
+				dbLo = self.getInfo("config")["db_location"]
+				doBackup = self.getInfo("config")["db_auto_backup_update"].lower() == "true" and os.path.isfile(dbLo) and os.access(os.path.dirname(os.path.abspath(dbLo)), os.W_OK)
+				needV2 = False
+				if os.path.isfile(dbLo):
+					chk = sqlite3.connect(dbLo)
+					try:
+						names = {r[0] for r in chk.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+					finally:
+						chk.close()
+					needV2 = "series" in names and "series_ref" not in names and dbv == "1.4.6"
+					if dbv.split(".")[0] == "1" and needV2 != True:
+						self.logged("Database version is 1.x.x but not 1.4.6. Please update mikan to version 1.4.1 to migrate database or remove current database file to generate new database.")
+						raise SystemExit(f"Database version is 1.x.x but not 1.4.6. Please update mikan to version 1.4.1 to migrate database or remove current database file to generate new database.")
+				if needV2:
+					from src.db2update import updateDB as updateDBv2
+					self.logged("Database uses the 1.x schema, updating to 2.0...")
+					updateDBv2(dbLo, logged=self.logged, autoBackup=doBackup, newVersion=settings["dbVersion"]["value"])
+				if doBackup and not needV2:
 					backupLoc = self.getInfo("config")["db_location"] + "_" + datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y%m%d%H%M%S') + ".bak"
 					self.logged(f"Backing up database to {backupLoc}...")
 					try:
@@ -961,12 +1004,10 @@ class Base:
 								if col not in tables[table]:
 									self.logged(f"Cannot update table {table} automatically because {col} is no longer in new db version, need manual update, aborting...")
 									raise Exception(f"Cannot update table {table} because {col} is no longer in new db version")
-							self.logged(f"Renaming table {table} to {table}_old...")
 							db.execute('PRAGMA foreign_keys=OFF;')
-							cursor.execute(f"ALTER TABLE {table} RENAME TO {table}_old")
-							db.commit()
-							self.logged(f"Creating new table {table}...")
-							t = f"CREATE TABLE {table} ("
+							cursor.execute(f"DROP TABLE IF EXISTS {table}_new")
+							self.logged(f"Creating new table {table}_new...")
+							t = f"CREATE TABLE {table}_new ("
 							pri = []
 							for col in tables[table]:
 								t = t + f"{col} {tables[table][col]["type"].upper()} {"DEFAULT NULL" if "def" not in tables[table][col] or tables[table][col]["def"] is None else f" DEFAULT '{tables[table][col]["def"]}'"}"
@@ -979,12 +1020,13 @@ class Base:
 							t = f"{t.rstrip(", ")}{"" if len(pri) == 0 else ", PRIMARY KEY(" + ",".join(pri) + ")"})"
 							cursor.execute(t)
 							db.commit()
-							self.logged(f"Copying data from {table}_old to {table}...")
-							mv = f"INSERT INTO {table} ({",".join(tbCols)}) SELECT {",".join(tbCols)} FROM {table}_old"
+							self.logged(f"Copying data from {table} to {table}_new...")
+							mv = f"INSERT INTO {table}_new ({",".join(tbCols)}) SELECT {",".join(tbCols)} FROM {table}"
 							cursor.execute(mv)
 							db.commit()
-							self.logged(f"Dropping old table {table}_old...")
-							cursor.execute(f"DROP TABLE {table}_old")
+							self.logged(f"Replacing {table} with {table}_new...")
+							cursor.execute(f"DROP TABLE {table}")
+							cursor.execute(f"ALTER TABLE {table}_new RENAME TO {table}")
 							db.commit()
 							db.execute('PRAGMA foreign_keys=ON;')
 							db.commit()
@@ -1043,10 +1085,10 @@ class Base:
 		try:
 			db = sqlite3.connect(self.getInfo("config")["db_location"])
 			cr = db.cursor()
-			
+
 			cr.execute("DELETE FROM locks WHERE timestamp < datetime('now', '-1 hour')")
 			cr.execute("SELECT pid FROM locks WHERE id=? AND type=?", (lockID, lockType))
-			
+
 			row = cr.fetchone()
 			if row:
 				try:
@@ -1094,14 +1136,14 @@ class Process:
 		self.logged(f"Adding: {args["id"]}")
 
 		if args["provider"] in self.base.getInfo("provider"):
-			mod = Modules(self.logged)
+			mod = Plugins(self.logged)
 			mod.loadModule(args["provider"], logged=self.logged)
 			dataSerie = mod.getSerieInfo(args["id"])
 			mangadb = self.base.queryDB(select=["id"],table=["series"],where={"id":args["id"]})
 			if len(mangadb) > 0 and args["id"] == mangadb[0]["id"]:
 				status="Already added"
 			else:
-				self.base.insereplaceDB(table=["series"],values={"id":args["id"], "name":dataSerie["serie_original"], "forceName":dataSerie["serie_original"], "lastUpdate":dataSerie["lastUpdate"], "author":",".join(dataSerie["author"]), "artist":",".join(dataSerie["artist"]), "imageName":dataSerie["cover_id"], "image":dataSerie["cover"], "lastCheck":datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "favorite":"0", "fixedImage":"0", "priority":"0", "h":"0", "nameWarn":"0", "source":args["provider"]})
+				self.base.insereplaceDB(table=["series"],values={"id":args["id"], "name":dataSerie["serie_original"], "forceName":dataSerie["serie_original"], "lastUpdate":dataSerie["lastUpdate"], "author":",".join(dataSerie["author"]), "artist":",".join(dataSerie["artist"]), "imageName":dataSerie["cover_id"], "image":dataSerie["cover"], "lastCheck":datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "favorite":"0", "fixedImage":"0", "priority":"0", "h":"0", "nameWarn":"0", "plugin":args["provider"]})
 				status = f"Added: {dataSerie["serie_original"]}"
 
 			thread=[]
@@ -1137,11 +1179,11 @@ class Process:
 			status=f"Already added: {args["id"]}"
 		else:
 			if args["provider"] in self.base.getInfo("provider"):
-				mod = Modules(self.logged)
+				mod = Plugins(self.logged)
 				mod.loadModule(args["provider"], logged=self.logged)
 				author = mod.getAuthorInfo(args["id"])
 				if author["status"] == 200:
-					self.base.insereplaceDB(table=["author"],values={"id":author["id"], "name":author["name"], "source":author["provider"], "favorite":"0"})
+					self.base.insereplaceDB(table=["author"],values={"id":author["id"], "name":author["name"], "plugin":author["provider"], "favorite":"0"})
 					status = f"Added: {args["id"]}"
 				else:
 					status = f"Failed to add: {args["id"]} ({author["status"]})"
@@ -1166,11 +1208,11 @@ class Process:
 		if args["provider"] in self.base.getInfo("provider"):
 			manga = self.base.queryDB(select=["id"],table=["series"],where={"id":args["id"]})
 			if len(manga) > 0 and args["id"] == manga[0]["id"]:
-				mod = Modules(self.logged)
+				mod = Plugins(self.logged)
 				mod.loadModule(args["provider"], logged=self.logged)
 				dataSerie = mod.getSerieInfo(args["id"])
 
-				self.base.updateDB(values={"name":dataSerie["serie_original"], "lastUpdate":dataSerie["lastUpdate"], "author":",".join(dataSerie["author"]), "artist":",".join(dataSerie["artist"]), "imageName":dataSerie["cover_id"], "image":dataSerie["cover"], "lastCheck":datetime.now().strftime("%Y-%m-%d %H:%M:%S")}, table=["series"], where={"id":args["id"],"source":args["provider"]})
+				self.base.updateDB(values={"name":dataSerie["serie_original"], "lastUpdate":dataSerie["lastUpdate"], "author":",".join(dataSerie["author"]), "artist":",".join(dataSerie["artist"]), "imageName":dataSerie["cover_id"], "image":dataSerie["cover"], "lastCheck":datetime.now().strftime("%Y-%m-%d %H:%M:%S")}, table=["series"], where={"id":args["id"],"plugin":args["provider"]})
 				status = f"Updated: {dataSerie["serie_original"]}"
 
 				thread=[]
@@ -1200,8 +1242,8 @@ class Process:
 		status=""
 
 		chapterdbq = self.base.queryDB(select=["series","id","title","chapter","volume","tgroup","language","time","got"],table=["chapter"],where={"id":args["id"],"series":args["serie"]})
-		seriedbq = self.base.queryDB(select=["id","name","forceName","author","artist","h","source"],table=["series"],where={"id":args["serie"],"source":args["provider"]})
-		if len(chapterdbq) == 0: 
+		seriedbq = self.base.queryDB(select=["id","name","forceName","author","artist","h","plugin"],table=["series"],where={"id":args["serie"],"plugin":args["provider"]})
+		if len(chapterdbq) == 0:
 			status="Chapter not found in database"
 			return {"status":status}
 		if len(seriedbq) == 0:
@@ -1209,12 +1251,12 @@ class Process:
 			return {"status":status}
 		chapterdb = chapterdbq[0]
 		seriedb = seriedbq[0]
-		if seriedb["source"] in self.base.getInfo("provider"):
+		if seriedb["plugin"] in self.base.getInfo("provider"):
 			progressInfo = {
 				"id": chapterdb["id"],
 				"name": seriedb["name"] if seriedb["forceName"]==None or seriedb["forceName"]=="" else seriedb["forceName"],
 				"parent": seriedb["id"],
-				"provider": seriedb["source"],
+				"provider": seriedb["plugin"],
 				"type": "chapter",
 				"status": "downloading",
 				"statusText": f"getting chapter {chapterdb['title']} info",
@@ -1228,9 +1270,9 @@ class Process:
 			author = [a["name"] for a in self.base.queryDB(select=["name"],table=["author"],where={"id":seriedb["author"].split(",")})] if seriedb["artist"] != "" else []
 			artist = [a["name"] for a in self.base.queryDB(select=["name"],table=["author"],where={"id":seriedb["artist"].split(",")})] if seriedb["artist"] != "" else []
 			chapter = {
-				"provider": seriedb["source"],
+				"provider": seriedb["plugin"],
 				"serie_id": seriedb["id"],
-				"provider": seriedb["source"],
+				"provider": seriedb["plugin"],
 				"author": ",".join(author),
 				"artist": ",".join(artist),
 				"group": ",".join(g["name"] for g in self.base.queryDB(select=["name"],table=["tgroup"],where={"id":chapterdb["tgroup"].split(",")},whereopt="or")) if chapterdb["tgroup"] != "" else "",
@@ -1244,14 +1286,14 @@ class Process:
 				"title": chapterdb["title"] if chapterdb["title"] != None else "",
 				"lang_short": chapterdb["language"]
 			}
-			
+
 			progressInfo.update({
 				"statusText": f"downloading {chapter['title']} info",
 				"progress": "20",
 				"subprogress": "100"
 			})
 			self.progress.updatelist(progressInfo)
-			mod = Modules(self.logged)
+			mod = Plugins(self.logged)
 			mod.loadModule(args["provider"], logged=self.logged)
 			img = mod.getChapterImg(args["id"])
 
@@ -1326,60 +1368,114 @@ class Process:
 		return {"status":status}
 
 	def markGroupsProp(self, args:dict) -> dict:
-		status=""
-		checkInput = self.base.checkArg({
-			"input":args,
-			"context":[{"var":"id", "type":str, "req":True}]
-		})
-		if checkInput["status"]=="failed": status=checkInput["data"]["msg"];return {"status":status}
-		info = checkInput["data"]["normal"]
-		groupdb = self.base.queryDB(select=["id","ignore","fake","deleted"],table=["tgroup"],where={"id":args["id"]})
-		if len(groupdb)>0 and groupdb[0]["id"]==args["id"]:
-			checkInput = self.base.checkArg({
-				"input":args,
-				"context":[
-					{"var":"ignore", "type":bool, "req":False, "def":groupdb[0]["ignore"]},
-					{"var":"fake", "type":bool, "req":False, "def":groupdb[0]["fake"]},
-					{"var":"deleted", "type":bool, "req":False, "def":groupdb[0]["deleted"]}
-				]
-			})
-			if checkInput["status"]=="failed": status=checkInput["data"]["msg"];return
-			args = checkInput["data"]["normal"]
-			args.update(info)
-			self.base.updateDB(values={"ignore":args["ignore"], "fake":args["fake"], "deleted":args["deleted"]}, table=["tgroup"], where={"id":args["id"]})
-			status = "Saved"
-		else:
-			status = "No match group"
-		return {"status":status}
-
-	def markSerieProp(self, args:dict) -> dict:
-		status=""
 		checkInput = self.base.checkArg({
 			"input":args,
 			"context":[
-				{"var":"id", "type":str, "req":True},
-				{"var":"provider", "type":str, "req":True}
+				{"var":"groupid", "type":str, "req":True},
+				{"var":"provider", "type":str, "req":False, "def":""}
 			]
 		})
-		if checkInput["status"]=="failed": status=checkInput["data"]["msg"];return {"status":status}
-		info = checkInput["data"]["normal"]
-		seriedb = self.base.queryDB(select=["id","forceName","h","source"],table=["series"],where={"id":args["id"],"source":args["provider"]})
-		if len(seriedb)>0 and seriedb[0]["id"]==args["id"] and seriedb[0]["source"]==args["provider"]:
-			checkInput = self.base.checkArg({
-				"input":args,
-				"context":[
-					{"var":"h", "type":bool, "req":False, "def":seriedb[0]["h"]},
-					{"var":"forceName", "type":str, "req":False, "def":seriedb[0]["forceName"]}
-				]
-			})
-			if checkInput["status"]=="failed": status=checkInput["data"]["msg"];return {"status":status}
-			args = checkInput["data"]["normal"]
-			args.update(info)
-			self.base.updateDB(values={"h":args["h"],"forceName":args["forceName"] if args["forceName"]!="" else None}, table=["series"], where={"id":args["id"],"source":args["provider"]})
-			status = "Saved"
-		else:
-			status = "No match serie"
-		return {"status":status}
+		if checkInput["status"]=="failed": return {"status":checkInput["data"]["msg"]}
+		groupid = checkInput["data"]["normal"]["groupid"]
+		provider = checkInput["data"]["normal"]["provider"]
+		VALID_PROPS = [
+			{"table":"tgroup","col":"uid","val":groupid,"prop":[
+				{"name":"ignore","type":bool}
+			]},
+			{"table":"tgroup_ref","col":"tgroup_uid","val":groupid,"prop":[
+				{"name":"fake","type":bool},
+				{"name":"deleted","type":bool}
+			]}
+		]
+		groupdb = self.base.queryDB(
+			select=["tgroup.uid AS uid","tgroup.ignore AS ignore","tgroup_ref.fake AS fake","tgroup_ref.deleted AS deleted","tgroup_ref.plugin AS plugin"],
+			table=["tgroup LEFT JOIN tgroup_ref ON tgroup_ref.tgroup_uid=tgroup.uid"],
+			where={"uid":groupid, **({"tgroup_ref.plugin":provider} if provider else {})}
+		)
+
+		if len(groupdb)<1 or groupdb[0]["uid"]!=groupid: return {"status":"No match group"}
+		if any(p["name"] in args for p in VALID_PROPS[1]["prop"]):
+			if not provider: groupdb[0].update({p["name"]:None for p in VALID_PROPS[1]["prop"] if p["name"] in args and any(r[p["name"]] != groupdb[0][p["name"]] for r in groupdb)})
+			if groupdb[0]["plugin"] is None: return {"status":"No match group plugin"}
+		checkInput = self.base.checkArg({
+			"input":args,
+			"context": [{"var": p["name"], "type": p["type"], "req": False, "def": groupdb[0][p["name"]]} for t in VALID_PROPS for p in t["prop"]]
+		})
+		if checkInput["status"]=="failed": return {"status":checkInput["data"]["msg"]}
+		val = checkInput["data"]["normal"]
+		valInc = {}
+		for table in VALID_PROPS:
+			tid = table["table"]+table["col"]+table["val"]
+			for prop in table["prop"]:
+				if prop["type"] == bool and prop["name"] in args:
+					if val[prop["name"]] != groupdb[0][prop["name"]]:
+						if tid not in valInc: valInc.update({tid:{"table":table["table"],"col":table["col"],"val":table["val"],"prop":[]}})
+						valInc[tid]["prop"].append({"name":prop["name"],"value":val[prop["name"]]})
+				if prop["type"] == str and prop["name"] in args:
+					if val[prop["name"]] != groupdb[0][prop["name"]]:
+						if tid not in valInc: valInc.update({tid:{"table":table["table"],"col":table["col"],"val":table["val"],"prop":[]}})
+						valInc[tid]["prop"].append({"name":prop["name"],"value":val[prop["name"]] if val[prop["name"]]!="" else None})
+
+		for t in valInc:
+			table = valInc[t]
+			sval = {}
+			for prop in table["prop"]:
+				sval.update({prop["name"]:prop["value"]})
+			if len(sval) != 0:
+				swhare = {table["col"]:table["val"]}
+				if table["table"] == "tgroup_ref" and provider: swhare["plugin"] = provider
+				self.base.updateDB(values=sval, table=[table["table"]], where=swhare)
+
+		return {"status":"Saved"}
+
+	def markSerieProp(self, args:dict) -> dict:
+		checkInput = self.base.checkArg({
+			"input":args,
+			"context":[{"var":"seriesid", "type":str, "req":True}]
+		})
+		if checkInput["status"]=="failed": return {"status":checkInput["data"]["msg"]}
+		seriesid = checkInput["data"]["normal"]["seriesid"]
+		VALID_PROPS = [
+			{"table":"series","col":"uid","val":seriesid,"prop":[
+				{"name":"h","type":bool},
+				{"name":"forceName","type":str}
+			]}
+		]
+		seriedb = self.base.queryDB(
+			select=["uid","forceName","h"],
+			table=["series"],
+			where={"uid":seriesid}
+		)
+
+		if len(seriedb)<1 or seriedb[0]["uid"]!=seriesid: return {"status":"No match series"}
+		checkInput = self.base.checkArg({
+			"input":args,
+			"context": [{"var": p["name"], "type": p["type"], "req": False, "def": seriedb[0][p["name"]]} for t in VALID_PROPS for p in t["prop"]]
+		})
+		if checkInput["status"]=="failed": return {"status":checkInput["data"]["msg"]}
+		val = checkInput["data"]["normal"]
+		valInc = {}
+		for table in VALID_PROPS:
+			tid = table["table"]+table["col"]+table["val"]
+			for prop in table["prop"]:
+				if prop["type"] == bool and prop["name"] in args:
+					if val[prop["name"]] != seriedb[0][prop["name"]]:
+						if tid not in valInc: valInc.update({tid:{"table":table["table"],"col":table["col"],"val":table["val"],"prop":[]}})
+						valInc[tid]["prop"].append({"name":prop["name"],"value":val[prop["name"]]})
+				if prop["type"] == str and prop["name"] in args:
+					if val[prop["name"]] != seriedb[0][prop["name"]]:
+						if tid not in valInc: valInc.update({tid:{"table":table["table"],"col":table["col"],"val":table["val"],"prop":[]}})
+						valInc[tid]["prop"].append({"name":prop["name"],"value":val[prop["name"]] if val[prop["name"]]!="" else None})
+
+		for t in valInc:
+			table = valInc[t]
+			sval = {}
+			for prop in table["prop"]:
+				sval.update({prop["name"]:prop["value"]})
+			if len(sval) != 0:
+				self.base.updateDB(values=sval, table=[table["table"]], where={table["col"]:table["val"]})
+
+		return {"status":"Saved"}
 
 	def markChapterProp(self, args:dict) -> dict:
 		status=""
@@ -1393,8 +1489,8 @@ class Process:
 		})
 		if checkInput["status"]=="failed": status=checkInput["data"]["msg"];return {"status":status}
 		info = checkInput["data"]["normal"]
-		chapterdb = self.base.queryDB(select=["id","serie","source"],table=["chapter"],where={"id":args["id"],"series":args["serie"],"source":args["provider"]})
-		if len(chapterdb)>0 and chapterdb[0]["id"]==args["id"] and chapterdb[0]["series"]==args["serie"] and chapterdb[0]["source"]==args["provider"]:
+		chapterdb = self.base.queryDB(select=["id","serie","plugin"],table=["chapter"],where={"id":args["id"],"series":args["serie"],"plugin":args["provider"]})
+		if len(chapterdb)>0 and chapterdb[0]["id"]==args["id"] and chapterdb[0]["series"]==args["serie"] and chapterdb[0]["plugin"]==args["provider"]:
 			checkInput = self.base.checkArg({
 				"input":args,
 				"context":[{"var":"get", "type":bool, "req":False, "def":chapterdb[0]["get"]}]
@@ -1402,7 +1498,7 @@ class Process:
 			if checkInput["status"]=="failed": status=checkInput["data"]["msg"];return {"status":status}
 			args = checkInput["data"]["normal"]
 			args.update(info)
-			self.base.updateDB(values={"get":args["get"]}, table=["chapter"], where={"id":args["id"],"series":args["serie"],"source":args["provider"]})
+			self.base.updateDB(values={"get":args["get"]}, table=["chapter"], where={"id":args["id"],"series":args["serie"],"plugin":args["provider"]})
 			status = "Saved"
 		else:
 			status = "No match chapter"
@@ -1421,13 +1517,13 @@ class Process:
 		status = ""
 
 		settings = self.base.getInfo("settings")
-		seriedb = self.base.queryDB(select=["id","name","forceName","source","h"],table=["series"],where={"id":args["id"],"source":args["provider"]})
-		if seriedb and args["id"] == seriedb[0]["id"] and seriedb[0]["source"] in self.base.getInfo("provider"):
+		seriedb = self.base.queryDB(select=["id","name","forceName","plugin","h"],table=["series"],where={"id":args["id"],"plugin":args["provider"]})
+		if seriedb and args["id"] == seriedb[0]["id"] and seriedb[0]["plugin"] in self.base.getInfo("provider"):
 			progressInfo = {
 				"id": seriedb[0]["id"],
 				"name": seriedb[0]["name"] if seriedb[0]["forceName"]==None or seriedb[0]["forceName"]=="" else seriedb[0]["forceName"],
 				"parent": seriedb[0]["id"],
-				"provider": seriedb[0]["source"],
+				"provider": seriedb[0]["plugin"],
 				"type": "cover",
 				"status": "downloading",
 				"statusText": "downloading cover",
@@ -1435,7 +1531,7 @@ class Process:
 				"subprogress": "0"
 			}
 			self.progress.updatelist(progressInfo)
-			mod = Modules(self.logged)
+			mod = Plugins(self.logged)
 			mod.loadModule(args["provider"], logged=self.logged)
 			data = mod.getSerieInfo(args["id"])
 			progressInfo.update({
@@ -1479,7 +1575,7 @@ class Process:
 					format = settings["coverHDir"]
 					lo = settings["saveHDir"]
 				lo = self.base.customFormat(lo+format, **data)
-				
+
 				os.makedirs(os.path.dirname(lo),exist_ok=True)
 				with open(lo, "wb") as file:
 					file.write(data["cover"])
@@ -1511,7 +1607,7 @@ class Process:
 		settings = self.base.getInfo("settings")
 		status = ""
 
-		seriedb = self.base.queryDB(select=["id","name","forceName","h","source"],table=["series"],where={"id":args["id"],"source":args["provider"]})
+		seriedb = self.base.queryDB(select=["id","name","forceName","h","plugin"],table=["series"],where={"id":args["id"],"plugin":args["provider"]})
 		if len(seriedb) < 1 or args["id"] != seriedb[0]["id"] or args["provider"] not in self.base.getInfo("provider"):
 			status = "Not valid id/provider or not added"
 			self.logged("Not valid id/provider or not added")
@@ -1521,7 +1617,7 @@ class Process:
 			"id": args["id"],
 			"name": seriedb[0]["name"] if seriedb[0]["forceName"]==None or seriedb[0]["forceName"]=="" else seriedb[0]["forceName"],
 			"parent": seriedb[0]["id"],
-			"provider": seriedb[0]["source"],
+			"provider": seriedb[0]["plugin"],
 			"type": "info",
 			"status": "downloading",
 			"statusText": "getting serie info",
@@ -1533,7 +1629,7 @@ class Process:
 		fkGroup = {g["id"] for g in self.base.queryDB(select=["id"],table=["tgroup"],where={"fake":"1"})}
 		location = settings["saveHDir"] if seriedb[0]["h"] else settings["saveDir"]
 		format = settings["hSaveName"] if seriedb[0]["h"] else settings["saveName"]
-		mod = Modules(logged=self.logged)
+		mod = Plugins(logged=self.logged)
 		mod.loadModule(args["provider"])
 		dataSerie = mod.getSerieInfo(args["id"])
 		manga = []
@@ -1569,7 +1665,7 @@ class Process:
 			groupDB = [gdb["id"] for gdb in self.base.queryDB(select=["id"],table=["tgroup"],where={"id":[g["id"] for g in group]},whereopt="or")]
 			for g in group:
 				if g["id"] not in groupDB:
-					self.base.insereplaceDB(table=["tgroup"],values={"id":g["id"], "name":g["name"], "source":args["provider"], "ignore":"0", "fake":g["fake"], "deleted":"0"})
+					self.base.insereplaceDB(table=["tgroup"],values={"id":g["id"], "name":g["name"], "plugin":args["provider"], "ignore":"0", "fake":g["fake"], "deleted":"0"})
 					fkGroup.add(g["id"]) if g["fake"] == "1" else None
 			if not set(data["groupid"].split(",")).isdisjoint(igGroup):
 				self.logged(f"Ignore chapter {data["chapter"]} from {data["group"]} (ignore)")
@@ -1604,7 +1700,7 @@ class Process:
 						self.progress.updatelist(progressInfoChapter)
 				else:
 					p["data"]["downloaded"] = False
-					self.base.insereplaceDB(table=["chapter"], values={"id":p["data"]["id"], "series":dataSerie["id"], "source":args["provider"], "title":p["data"]["title"] if p["data"]["title"] is not None else "", "volume":p["data"]["volume"] if p["data"]["volume"] is not None else "", "chapter":p["data"]["chapter"], "tgroup":p["data"]["groupid"] if "groupid" in p["data"] else "", "language":p["data"]["lang_short"], "time":datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "got":"0"})
+					self.base.insereplaceDB(table=["chapter"], values={"id":p["data"]["id"], "series":dataSerie["id"], "plugin":args["provider"], "title":p["data"]["title"] if p["data"]["title"] is not None else "", "volume":p["data"]["volume"] if p["data"]["volume"] is not None else "", "chapter":p["data"]["chapter"], "tgroup":p["data"]["groupid"] if "groupid" in p["data"] else "", "language":p["data"]["lang_short"], "time":datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "got":"0"})
 					if args["toqueue"] == "yes":
 						progressInfoChapter = progressInfo.copy()
 						progressInfoChapter.update({
@@ -1657,7 +1753,7 @@ class Process:
 		status = ""
 
 		mangadb = self.base.queryDB(select=["id","title","got"],table=["chapter"],where={"series":args["id"]})
-		seriedb = self.base.queryDB(select=["id","name","forceName","source","h"],table=["series"],where={"id":args["id"],"source":args["provider"]})
+		seriedb = self.base.queryDB(select=["id","name","forceName","plugin","h"],table=["series"],where={"id":args["id"],"plugin":args["provider"]})
 		if len(seriedb) > 0:
 			for manga in mangadb:
 				if manga["got"] == False:
@@ -1665,7 +1761,7 @@ class Process:
 						"id": args["id"],
 						"name": seriedb[0]["name"] if seriedb[0]["forceName"]==None or seriedb[0]["forceName"]=="" else seriedb[0]["forceName"],
 						"parent": seriedb[0]["id"],
-						"provider": seriedb[0]["source"],
+						"provider": seriedb[0]["plugin"],
 						"type": "download",
 						"status": "pending",
 						"statusText": f"pending to download chapter {manga["title"]}",
@@ -1673,7 +1769,7 @@ class Process:
 						"subprogress": "0"
 					}
 					self.progress.updatelist(progressInfo)
-			self.base.processQueue()
+			self.processQueue()
 
 			return {"status":status}
 		else:
@@ -1682,10 +1778,10 @@ class Process:
 			return {"status":status}
 
 	def getAllSeriesChapter(self):
-		series = self.base.queryDB(select=["id","name","source"],table=["series"])
+		series = self.base.queryDB(select=["id","name","plugin"],table=["series"])
 		for s in series:
-			if s["source"] in self.base.getInfo("provider"):
-				self.getChapterList({"id":s["id"],"provider":s["source"]})
+			if s["plugin"] in self.base.getInfo("provider"):
+				self.getChapterList({"id":s["id"],"provider":s["plugin"]})
 		return {"status":"check all series chapters completed"}
 
 	def clearCache(self):
@@ -1725,7 +1821,7 @@ class Process:
 			hbt.start()
 			self.logged("Starting queue process...")
 			qAll = False
-			queued = self.base.queryDB(select=["id","parent","type","status","statusText","source"],table=["queue"], where={"status":"pending" if not failed else "failed"})
+			queued = self.base.queryDB(select=["id","parent","type","status","statusText","plugin"],table=["queue"], where={"status":"pending" if not failed else "failed"})
 
 			while qAll != True:
 				for q in queued:
@@ -1735,68 +1831,110 @@ class Process:
 						break
 
 					if q["type"] == "chapter":
-						self.downloadChapter({"id":q["id"], "serie":q["parent"], "provider":q["source"]})
+						self.downloadChapter({"id":q["id"], "serie":q["parent"], "provider":q["plugin"]})
 					elif q["type"] == "serieinfo":
-						self.updateSerie({"id":q["id"], "provider":q["source"]})
+						self.updateSerie({"id":q["id"], "provider":q["plugin"]})
 					elif q["type"] == "cover":
-						self.updateCover({"id":q["id"], "provider":q["source"]})
+						self.updateCover({"id":q["id"], "provider":q["plugin"]})
 
-				queued = self.base.queryDB(select=["id","parent","type","status","statusText","source"],table=["queue"], where={"status":"pending" if not failed else "failed"})
+				queued = self.base.queryDB(select=["id","parent","type","status","statusText","plugin"],table=["queue"], where={"status":"pending" if not failed else "failed"})
 				if len(queued)<1:
 					qAll = True
-		except Exception as e:
-			self.logged(f"Error processing queue: {str(e)}")
-			return {"status":f"Error processing queue: {str(e)}"}
-		finally:
+
 			self.base.setInfo("runningQueue", False)
 			self.base.setQueueStop(False)
 			self.base.dbUnlock("queueprocess")
 			self.logged("Queue process complete")
 			return {"status":"Queue process complete"}
+		except Exception as e:
+			self.base.setInfo("runningQueue", False)
+			self.base.setQueueStop(False)
+			self.base.dbUnlock("queueprocess")
+			self.logged(f"Error processing queue: {str(e)}")
+			return {"status":f"Error processing queue: {str(e)}"}
 
 class View:
-	def __init__(self, logged:Callable=None) -> None:
-		self.logged = logged if logged != None else Base().logged
+	def __init__(self, logged:Log|Callable|None = None) -> None:
+		self.logged = logged if logged is not None else Base().logged
 		self.base = Base(self.logged)
 
 	def knownSeries(self) -> list:
 		out = []
-		seriedb = self.base.queryDB(select=["id","name","forceName","h","source","author","artist"],table=["series"],where=({} if Base().getInfo("settings")["showH"] == "yes" else {"h":False}))
-		a = set()
-		for s in seriedb:
-			a.update(re.sub(r"\s*,+\s*$", "", re.sub(r"\s*,+\s*", ",", s["author"]+","+s["artist"])).split(","))
-		authordb = self.base.queryDB(select=["id","name"],table=["author"],where={"id":list(a)},whereopt="or")
-		author = {a["id"]: a["name"] for a in authordb}
+		seriedb = self.base.queryDB(
+			select=["series.uid AS serieid", "series.name AS name", "series.forcename AS forcename", "series.h AS h", "series_ref.plugin AS plugin"],
+			table=["series LEFT JOIN series_ref ON series_ref.series_uid = series.uid"],
+			where=({} if Base().getInfo("settings")["showH"] == "yes" else {"h":False})
+		)
+		authordb = self.base.queryDB(
+			select=[
+				"series_author.series_uid AS serieid", "author.name AS author", "series_author.role AS role"
+			],
+			table=[
+				"series_author LEFT JOIN author ON author.uid = series_author.author_uid"
+			]
+		)
+		authors = {}
+		for a in authordb:
+			if a["serieid"] not in authors:
+				authors[a["serieid"]] = {}
+			if a["role"] not in authors[a["serieid"]]:
+				authors[a["serieid"]][a["role"]] = []
+			if a["author"] not in authors[a["serieid"]][a["role"]]:
+				authors[a["serieid"]][a["role"]].append(a["author"])
+
 		for s in seriedb:
 			out.append({
-				"serieid": s["id"],
-				"name": s["forceName"] if s["forceName"] != None and s["forceName"] != "" else s["name"],
-				"authors": ", ".join([author[a] if a in author else "Unknown" for a in re.sub(r"\s*,+\s*$", "", re.sub(r"\s*,+\s*", ",", s["author"])).split(",")]),
-				"artists": ", ".join([author[a] if a in author else "Unknown" for a in re.sub(r"\s*,+\s*$", "", re.sub(r"\s*,+\s*", ",", s["artist"])).split(",")]),
+				"serieid": s["serieid"],
+				"name": s["forcename"] if s["forcename"] != None and s["forcename"] != "" else s["name"],
+				"authors": ", ".join(authors[s["serieid"]]["author"] if s["serieid"] in authors and "author" in authors[s["serieid"]] else ["Unknown"]),
+				"artists": ", ".join(authors[s["serieid"]]["artist"] if s["serieid"] in authors and "artist" in authors[s["serieid"]] else ["Unknown"]),
 				"h": s["h"],
-				"provider": s["source"]
+				"provider": s["plugin"]
 			})
+
 		return out
 
 	def knownSeriesChapter(self, args:dict) -> list:
 		checkInput = self.base.checkArg({
 			"input":args,
 			"context":[
-				{"var":"id", "type":str, "req":True}
+				{"var":"seriesid", "type":str, "req":True}
 			]
 		})
 		if checkInput["status"]=="failed": raise Exception(checkInput["data"]["msg"])
 		args=checkInput["data"]["normal"]
 
 		out = []
-		for d in self.base.queryDB(select=["chapter.series AS serieid", "chapter.id AS chapterid", "chapter.title AS name", "chapter.chapter AS chapter", "chapter.volume AS volume", "chapter.got AS dl", "chapter.tgroup AS tgroupid", "tgroup.name AS tgroup", "chapter.time AS time", "chapter.source AS source"], table=["chapter LEFT JOIN tgroup ON chapter.tgroup = tgroup.id"], where={"series": args["id"]}):
-			out.append({"serieid": d["serieid"], "chapterid": d["chapterid"], "name": d["name"], "chapter": d["chapter"], "volume": d["volume"], "saved": "true" if d["dl"]==1 else "false" , "tgroupid": d["tgroupid"], "tgroup": d["tgroup"] if d["tgroup"]!=None else "", "check": d["time"], "provider": d["source"]})
+		chapterdb = self.base.queryDB(
+            select=[
+                "chapter.uid AS chapterid",
+                "chapter.series_uid AS serieid",
+                "chapter.title AS name",
+                "chapter.chapter AS chapter",
+                "chapter.volume AS volume",
+                "chapter.got AS dl",
+                "chapter.time AS time",
+                "chapter_ref.plugin AS plugin",
+                "tgroup.uid AS tgroupid",
+                "tgroup.name AS tgroup",
+            ],
+            table=[
+                "chapter "
+                "LEFT JOIN chapter_ref ON chapter_ref.chapter_uid = chapter.uid "
+                "LEFT JOIN chapter_tgroup ON chapter_tgroup.chapter_uid = chapter.uid "
+                "LEFT JOIN tgroup ON tgroup.uid = chapter_tgroup.tgroup_uid"
+            ],
+            where={"chapter.series_uid": args["seriesid"]}
+        )
+		for d in chapterdb:
+			out.append({"serieid": d["serieid"], "chapterid": d["chapterid"], "name": d["name"], "chapter": d["chapter"], "volume": d["volume"], "saved": "true" if d["dl"]==1 else "false" , "tgroupid": d["tgroupid"], "tgroup": d["tgroup"] if d["tgroup"]!=None else "", "check": d["time"], "provider": d["plugin"]})
 		return out
 
 	def knownGroups(self) -> list:
 		out = []
-		for data in self.base.queryDB(select=["id","name","ignore","fake","deleted"],table=["tgroup"]):
-			out.append({"tgroupid": data["id"], "name": data["name"], "ignore": data["ignore"] if data["ignore"] == 1 else 0, "fake": data["fake"] if data["fake"] == 1 else 0, "deleted": data["deleted"] if data["deleted"] == 1 else 0})
+		for data in self.base.queryDB(select=["uid","name","ignore","fake","tgroup_ref.deleted AS deleted"],table=["tgroup LEFT JOIN tgroup_ref ON tgroup_ref.tgroup_uid = tgroup.uid"]):
+			out.append({"tgroupid": data["uid"], "name": data["name"], "ignore": data["ignore"] if data["ignore"] == 1 else 0, "fake": data["fake"] if data["fake"] == 1 else 0, "deleted": data["deleted"] if data["deleted"] == 1 else 0})
+
 		return out
 
 	def getCover(self, args:dict) -> bytes:
@@ -1810,11 +1948,11 @@ class View:
 		if checkInput["status"]=="failed": raise Exception(checkInput["data"]["msg"])
 		args=checkInput["data"]["normal"]
 
-		data = self.base.queryDB(select=["image"],table=["series"],where={"id":args["id"]})
+		data = self.base.queryDB(select=["image"],table=["series"],where={"uid":args["id"]})
 		if data:
 			return data[0]["image"]
 		elif args["provider"] in self.base.getInfo("provider"):
-			mod = Modules(self.logged)
+			mod = Plugins(self.logged)
 			mod.loadModule(args["provider"], logged=self.logged)
 			return mod.getSerieInfo(args["id"])["cover"]
 		else:
@@ -1838,14 +1976,14 @@ class View:
 			color = tuple(int(args["color"].lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
 		elif isinstance(settings["appBGColor"],str) and settings["appBGColor"].startswith("#") and len(settings["appBGColor"])==6:
 			color = tuple(int(settings["appBGColor"].lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
-		seriedb = self.base.queryDB(select=["id","source"],table=["series"],where={"id":settings["appBGCover"]})
-		seriedba = self.base.queryDB(select=["id","source"],table=["series"],where={"id":args["id"]})
 		rtype = args["type"] if args["type"]=="cover" or args["type"]=="color" else settings["appBGType"]
 		if rtype == "cover":
-			if seriedba and args["id"] == seriedba[0]["id"]:
-				return self.getCover({"id":seriedba[0]["id"],"provider":seriedba[0]["source"]})
-			elif seriedb and settings["appBGCover"] == seriedb[0]["id"]:
-				return self.getCover({"id":seriedb[0]["id"],"provider":seriedb[0]["source"]})
+			seriedb = self.base.queryDB(select=["series.uid AS uid","series_ref.plugin AS plugin"],table=["series LEFT JOIN series_ref ON series_ref.series_uid = series.uid"],where={"uid":settings["appBGCover"]})
+			seriedba = self.base.queryDB(select=["series.uid AS uid","series_ref.plugin AS plugin"],table=["series LEFT JOIN series_ref ON series_ref.series_uid = series.uid"],where={"uid":args["id"]})
+			if seriedba and args["id"] == seriedba[0]["uid"]:
+				return self.getCover({"id":seriedba[0]["uid"],"provider":seriedba[0]["plugin"]})
+			elif seriedb and settings["appBGCover"] == seriedb[0]["uid"]:
+				return self.getCover({"id":seriedb[0]["uid"],"provider":seriedb[0]["plugin"]})
 		elif rtype == "color":
 			import zlib, struct
 			ihdr = b'IHDR' + struct.pack('!IIBBBBB', 1, 1, 8, 2, 0, 0, 0)
@@ -1856,6 +1994,7 @@ class View:
 			idat = struct.pack('!I', len(comp)) + idat + struct.pack('!I', zlib.crc32(idat) & 0xffffffff)
 			iend = struct.pack('!I', 0) + b'IEND' + struct.pack('!I', zlib.crc32(b'IEND') & 0xffffffff)
 			return b'\x89PNG\r\n\x1a\n' + ihdr + idat + iend
+		return self.getAppBG({"color":"#000000", "type":"color"})
 
 	def searchSerie(self, args:dict) -> list:
 		checkInput = self.base.checkArg({
@@ -1868,14 +2007,14 @@ class View:
 		if checkInput["status"]=="failed": raise Exception(checkInput["data"]["msg"])
 		args=checkInput["data"]["normal"]
 		if args["provider"] in self.base.getInfo("provider"):
-			mod = Modules(self.logged)
+			mod = Plugins(self.logged)
 			mod.loadModule(args["provider"], logged=self.logged)
 			return mod.search(args["value"])
 		else:
 			self.logged("cannot search serie: invalid provider")
 			return []
 
-	def getSerieInfo(self, args:dict) -> list:
+	def getSerieInfo(self, args:dict) -> dict:
 		checkInput = self.base.checkArg({
 			"input":args,
 			"context":[
@@ -1886,16 +2025,16 @@ class View:
 		if checkInput["status"]=="failed": raise Exception(checkInput["data"]["msg"])
 		args=checkInput["data"]["normal"]
 		if args["provider"] in self.base.getInfo("provider"):
-			mod = Modules(self.logged)
+			mod = Plugins(self.logged)
 			mod.loadModule(args["provider"], logged=self.logged)
 			return mod.getSerieInfo(args["value"])
 		else:
 			self.logged("cannot search serie: invalid provider")
-			return []
+			return {}
 
 	def getSettings(self) -> list:
-		data = self.base.queryDB(select=["key","name","value"],table=["settings"],where={"user":"1"})
+		data = self.base.queryDB(select=["key","name","value","value","possible"],table=["settings"],where={"user":"1"})
 		re = []
 		for d in data:
-			re.append({"id": d["key"], "name": d["name"], "value": d["value"]})
+			re.append({"id": d["key"], "name": d["name"], "value": d["value"], "possible": d["possible"]})
 		return re

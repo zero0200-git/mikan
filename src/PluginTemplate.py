@@ -1,7 +1,6 @@
-
 from collections.abc import Callable
 
-class ModuleTemplate:
+class PluginTemplate:
 	name = "moduleTemplate"
 	def __init__(self, logged: Callable | None = None) -> None:
 		self.url = {
@@ -77,3 +76,7 @@ class ModuleTemplate:
 			}]
 		}]
 		return out
+
+class Plugin(PluginTemplate):
+	def getname(self):
+		return self.name
