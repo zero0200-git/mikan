@@ -62,11 +62,11 @@ class Plugins(PluginTemplate):
 			return super().search(keyword)
 		return self._loadedPlugin.search(keyword)
 
-	def getSerieInfo(self, serieid:str) -> dict:
+	def getSeriesInfo(self, serieid:str) -> dict:
 		if not isinstance(self._loadedPlugin, PluginTemplate):
 			self._loadedPluginCheck()
-			return super().getSerieInfo(serieid)
-		return self._loadedPlugin.getSerieInfo(serieid)
+			return super().getSeriesInfo(serieid)
+		return self._loadedPlugin.getSeriesInfo(serieid)
 
 	def getAuthorInfo(self, authorid:str) -> dict:
 		if not isinstance(self._loadedPlugin, PluginTemplate):
@@ -1032,7 +1032,7 @@ class Process:
 		self.base:Base = Base(self.logged)
 		self.progress:Progress = self.base.getInfo("progress")
 
-	def addSerie(self, args:dict) -> dict:
+	def addSeries(self, args:dict) -> dict:
 		checkInput = checkArg({
 			"input":args,
 			"context":[
@@ -1046,27 +1046,61 @@ class Process:
 		status=""
 		self.logged(f"Adding: {args["id"]}")
 
-		if args["provider"] in self.base.getInfo("provider"):
-			mod = Plugins(self.logged)
-			mod.loadModule(args["provider"], logged=self.logged)
-			dataSerie = mod.getSerieInfo(args["id"])
-			mangadb = self.base.queryDB(select=["id"],table=["series"],where={"id":args["id"]})
-			if len(mangadb) > 0 and args["id"] == mangadb[0]["id"]:
-				status="Already added"
-			else:
-				self.base.insereplaceDB(table=["series"],values={"id":args["id"], "name":dataSerie["serie_original"], "forceName":dataSerie["serie_original"], "lastUpdate":dataSerie["lastUpdate"], "author":",".join(dataSerie["author"]), "artist":",".join(dataSerie["artist"]), "imageName":dataSerie["cover_id"], "image":dataSerie["cover"], "lastCheck":datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "favorite":"0", "fixedImage":"0", "priority":"0", "h":"0", "nameWarn":"0", "plugin":args["provider"]})
-				status = f"Added: {dataSerie["serie_original"]}"
-
-			thread=[]
-			for a in dataSerie["author"] + dataSerie["artist"]:
-				thread.append(threading.Thread(target=self.addAuthor,args=({"id":a,"provider":args["provider"]},)))
-			for t in thread:
-				t.start()
-			for t in thread:
-				t.join()
-			status=f"Serie {dataSerie["serie_original"]} added"
+		seriesdb = self.base.queryDB(select=["ext_id"],table=["series_ref"],where={"ext_id":args["id"],"plugin":args["provider"]})
+		if len(seriesdb) > 0:
+			status="Already added"
 		else:
-			status = "Not valid id/provider"
+			if args["provider"] in self.base.getInfo("provider"):
+				mod = Plugins(self.logged)
+				mod.loadModule(args["provider"], logged=self.logged)
+				dataSeries = mod.getSeriesInfo(args["id"])
+				uid = self.base.getUUID()
+				sval = {
+					"uid":uid,
+					"name":dataSeries["serie_original"],
+					"forceName":dataSeries["serie_original"],
+					"imageName":dataSeries["cover_id"],
+					"image":dataSeries["cover"],
+					"fixedImage":"0",
+					"priority":"0",
+					"h":"0", 
+					"nameWarn":"0"
+				}
+				self.base.insereplaceDB(table=["series"],values=sval)
+				sfval = {
+					"series_uid":uid,
+					"ext_id":args["id"],
+					"favorite":"0",
+					"lastUpdate":dataSeries["lastUpdate"],
+					"lastCheck":datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+					"plugin":args["provider"]
+				}
+				self.base.insereplaceDB(table=["series_ref"],values=sfval)
+				status = f"Added: {dataSeries["serie_original"]}"
+
+				thread=[]
+				for a in dataSeries["author"] + dataSeries["artist"]:
+					thread.append(threading.Thread(target=self.addAuthor,args=({"id":a,"provider":args["provider"]},)))
+				for t in thread:
+					t.start()
+				for t in thread:
+					t.join()
+
+				for a in dataSeries["author"]:
+					auid = self.base.queryDB(select=["author_uid"],table=["author_ref"],where={"ext_id":a,"plugin":args["provider"]})
+					if len(auid) > 0:
+						self.base.insereplaceDB(table=["series_author"],values={"series_uid":uid, "author_uid": auid[0]["author_uid"], "role": "author"})
+					else:
+						self.logged(f"Failed to add author({a}) for series{uid}")
+				for a in dataSeries["artist"]:
+					auid = self.base.queryDB(select=["author_uid"],table=["author_ref"],where={"ext_id":a,"plugin":args["provider"]})
+					if len(auid) > 0:
+						self.base.insereplaceDB(table=["series_author"],values={"series_uid":uid, "author_uid": auid[0]["author_uid"], "role": "artist"})
+					else:
+						self.logged(f"Failed to add author({a}) for series{uid}")
+				status=f"Series {dataSeries["serie_original"]} added"
+			else:
+				status = "Not valid provider"
 
 		self.logged(status)
 		return {"status":status}
@@ -1085,8 +1119,8 @@ class Process:
 		status=""
 		self.logged(f"Adding: {args["id"]}")
 
-		authordb = self.base.queryDB(select=["id"],table=["author"],where={"id":args["id"]})
-		if len(authordb) > 0 and args["id"] == authordb[0]["id"]:
+		authordb = self.base.queryDB(select=["ext_id"],table=["author_ref"],where={"ext_id":args["id"],"plugin":args["provider"]})
+		if len(authordb) > 0:
 			status=f"Already added: {args["id"]}"
 		else:
 			if args["provider"] in self.base.getInfo("provider"):
@@ -1094,7 +1128,11 @@ class Process:
 				mod.loadModule(args["provider"], logged=self.logged)
 				author = mod.getAuthorInfo(args["id"])
 				if author["status"] == 200:
-					self.base.insereplaceDB(table=["author"],values={"id":author["id"], "name":author["name"], "plugin":author["provider"], "favorite":"0"})
+					uid = self.base.getUUID()
+					aval = {"uid":uid, "name":author["name"], "ignore":"0"}
+					self.base.insereplaceDB(table=["author"],values=aval)
+					afval = {"author_uid":uid, "ext_id":author["id"], "plugin":author["provider"], "favorite":"0", "deleted":"0"}
+					self.base.insereplaceDB(table=["author_ref"],values=afval)
 					status = f"Added: {args["id"]}"
 				else:
 					status = f"Failed to add: {args["id"]} ({author["status"]})"
@@ -1121,7 +1159,7 @@ class Process:
 			if len(manga) > 0 and args["id"] == manga[0]["id"]:
 				mod = Plugins(self.logged)
 				mod.loadModule(args["provider"], logged=self.logged)
-				dataSerie = mod.getSerieInfo(args["id"])
+				dataSerie = mod.getSeriesInfo(args["id"])
 
 				self.base.updateDB(values={"name":dataSerie["serie_original"], "lastUpdate":dataSerie["lastUpdate"], "author":",".join(dataSerie["author"]), "artist":",".join(dataSerie["artist"]), "imageName":dataSerie["cover_id"], "image":dataSerie["cover"], "lastCheck":datetime.now().strftime("%Y-%m-%d %H:%M:%S")}, table=["series"], where={"id":args["id"],"plugin":args["provider"]})
 				status = f"Updated: {dataSerie["serie_original"]}"
@@ -1444,7 +1482,7 @@ class Process:
 			self.progress.updatelist(progressInfo)
 			mod = Plugins(self.logged)
 			mod.loadModule(args["provider"], logged=self.logged)
-			data = mod.getSerieInfo(args["id"])
+			data = mod.getSeriesInfo(args["id"])
 			progressInfo.update({
 				"statusText": "downloaded cover",
 				"progress": "30",
@@ -1542,7 +1580,7 @@ class Process:
 		format = settings["hSaveName"] if seriedb[0]["h"] else settings["saveName"]
 		mod = Plugins(logged=self.logged)
 		mod.loadModule(args["provider"])
-		dataSerie = mod.getSerieInfo(args["id"])
+		dataSerie = mod.getSeriesInfo(args["id"])
 		manga = []
 		mangaVol = {}
 		progressInfo.update({
@@ -1777,12 +1815,8 @@ class View:
 			where=({} if Base().getInfo("settings")["showH"] == "yes" else {"h":False})
 		)
 		authordb = self.base.queryDB(
-			select=[
-				"series_author.series_uid AS serieid", "author.name AS author", "series_author.role AS role"
-			],
-			table=[
-				"series_author LEFT JOIN author ON author.uid = series_author.author_uid"
-			]
+			select=["series_author.series_uid AS serieid", "author.name AS author", "series_author.role AS role"],
+			table=["series_author LEFT JOIN author ON author.uid = series_author.author_uid"]
 		)
 		authors = {}
 		for a in authordb:
@@ -1869,13 +1903,13 @@ class View:
 				if len(img) > 0:
 					mod = Plugins(self.logged)
 					mod.loadModule(db[0]["plugin"], logged=self.logged)
-					return mod.getSerieInfo(db[0]["ext_id"])["cover"]
+					return mod.getSeriesInfo(db[0]["ext_id"])["cover"]
 				else:
 					return self.getAppBG({"color":"#000000","type":"color"})
 		elif args["provider"] in self.base.getInfo("provider"):
 			mod = Plugins(self.logged)
 			mod.loadModule(args["provider"], logged=self.logged)
-			return mod.getSerieInfo(args["id"])["cover"]
+			return mod.getSeriesInfo(args["id"])["cover"]
 		else:
 			return self.getAppBG({"color":"#000000","type":"color"})
 
@@ -1948,7 +1982,7 @@ class View:
 		if args["provider"] in self.base.getInfo("provider"):
 			mod = Plugins(self.logged)
 			mod.loadModule(args["provider"], logged=self.logged)
-			return mod.getSerieInfo(args["value"])
+			return mod.getSeriesInfo(args["value"])
 		else:
 			self.logged("cannot search serie: invalid provider")
 			return {}

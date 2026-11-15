@@ -21,7 +21,7 @@ class PluginTemplate:
 		}]
 		return out
 
-	def getSerieInfo(self, serieid:str) -> dict:
+	def getSeriesInfo(self, serieid:str) -> dict:
 		out = {
 			"provider": self.name,
 			"id": serieid,

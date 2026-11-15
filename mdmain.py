@@ -45,7 +45,7 @@ class MDMain:
 		return View(logged=self.logged).getSettings()
 
 	def addSerie(self,args):
-		return Process(logged=self.logged).addSerie(args)
+		return Process(logged=self.logged).addSeries(args)
 
 	def updateSerie(self,args):
 		return Process(logged=self.logged).updateSerie(args)

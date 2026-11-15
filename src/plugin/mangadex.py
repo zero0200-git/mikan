@@ -56,14 +56,14 @@ class mangadex(Plugin):
 			out.append(data)
 		return out
 
-	def getSerieInfo(self,serieid:str):
+	def getSeriesInfo(self,serieid:str):
 		checkInput = checkArg({
 			"input":{"id":serieid},
 			"context":[{"var":"id", "type":str, "req":True}]
 		})
 		if checkInput["status"]=="failed": raise Exception(checkInput["data"]["msg"])
 
-		out = super().getSerieInfo(serieid)
+		out = super().getSeriesInfo(serieid)
 		r = request(f"{self.url["api"]}/manga/{serieid}?{self.url["infoq"]}")
 		manga = r["json"]["data"]
 		out["provider"] = self.name
@@ -154,21 +154,25 @@ class mangadex(Plugin):
 		args=checkInput["data"]["normal"]
 
 		out = super().getAuthorInfo(authorid)
-		authordb = queryDB(select=["id"],table=["author"],where={"id":args["id"],"source":self.name})
-		if len(authordb) > 0 and args["id"] == authordb[0]["id"]:
-			return 0
+		out["provider"] = self.name
+		out["id"] = args["id"]
+		authordb = queryDB(
+			select=["author.name AS name"],
+			table=["author_ref LEFT JOIN author ON author.uid=author_ref.author_uid"],
+			where={"author_ref.ext_id":args["id"],"author_ref.plugin":self.name}
+		)
+		if authordb:
+			out["name"] = authordb[0]["name"]
+			out["status"] = 200
 		else:
-			r = []
 			r = request(f"{self.url["api"]}/author/{args["id"]}")
 			out["status"] = r["status"]
 			if r["status"] == 200:
 				data = r["json"]["data"]
-
-				out["id"] = args["id"]
 				out["name"] = data["attributes"]["name"]
-				out["provider"] = self.name
 			else:
-				self.logged("[getAuthorInfo] not ok:",r["status"])
+				out["name"] = ""
+				self.logged(f"[getAuthorInfo] not ok: {r['status']}")
 		return out
 
 	def getChapterImg(self,chapterid:str):
