@@ -76,7 +76,3 @@ class PluginTemplate:
 			}]
 		}]
 		return out
-
-class Plugin(PluginTemplate):
-	def getname(self):
-		return self.name

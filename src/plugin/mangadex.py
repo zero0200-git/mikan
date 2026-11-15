@@ -4,10 +4,10 @@ import re
 from typing import Callable
 import urllib.parse
 from src.base import Base
-from src.PluginTemplate import Plugin
+from src.checkarg import checkArg
+from src.Plugin import Plugin
 
 base = Base()
-checkArg = base.checkArg
 request = base.requestGet
 queryDB = base.queryDB
 
@@ -47,8 +47,8 @@ class mangadex(Plugin):
 					author.append(a["id"])
 				if a["type"] == "artist":
 					artist.append(a["id"])
-			authordb = {a["id"]: a["name"] for a in queryDB(select=["id","name"],table=["author"],where={"id":author},whereopt="or")}
-			artistdb = {a["id"]: a["name"] for a in queryDB(select=["id","name"],table=["author"],where={"id":artist},whereopt="or")}
+			authordb = {a: self._getAuthorName({"authorid":a}) for a in author}
+			artistdb = {a: self._getAuthorName({"authorid":a}) for a in artist}
 			data["authorid"] = ", ".join(author)
 			data["author"] = ", ".join([authordb[a] if a in authordb else "Unknown" for a in author])
 			data["artistid"] = ", ".join(artist)
@@ -74,12 +74,10 @@ class mangadex(Plugin):
 		out["serie_original"] = next(iter(manga["attributes"]["title"].values()))
 		out["serie"] = out["serie_original"]
 		out["serie_force"] = ""
-		fname = queryDB(select=["forceName","name"],table=["series"],where={"id":serieid,"source":self.name})
+		fname = self._getSeriesName({"seriesid":serieid})
 		if fname:
-			out["serie"] = fname[0]["name"]
-			if fname[0]["forceName"] != None and fname[0]["forceName"] != "":
-				out["serie"] = fname[0]["forceName"]
-				out["serie_force"] = fname[0]["forceName"]
+			out["serie"] = fname["name"]
+			out["serie_force"] = fname["forceName"]
 
 		for req in manga["relationships"]:
 			if req["type"] == "author":

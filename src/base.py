@@ -20,8 +20,10 @@ import urllib
 import urllib.request
 import urllib.parse
 import urllib.error
+import uuid
 from src.PluginTemplate import PluginTemplate
 from src.logger import Log
+from src.checkarg import checkArg
 
 class Plugins(PluginTemplate):
 	_allPlugin:dict = {}
@@ -136,7 +138,7 @@ class Progress:
 			sendMessage(data,msgType="progress")
 
 	def updatelist(self, data={"id":"","name":"","parent":"","provider":"","type":"","status":"pending","statusText":"","progress":"0","subprogress":"0"}):
-		dataC = Base().checkArg({
+		dataC = checkArg({
 			"input": data,
 			"context": [
 				{"var":"id", "type":str, "def":"", "req":True},
@@ -210,7 +212,7 @@ class Base:
 		self.logged: Log | Callable = logged if logged is not None else Base.logged
 
 	def initInfo(self, vars:list=[],force:bool=False) -> None:
-		check=self.checkArg({
+		check=checkArg({
 			"input": {"vars": vars, "force": force},
 			"context": [
 				{"var":"vars", "type":list, "def":self._availableInfo},
@@ -481,100 +483,6 @@ class Base:
 
 				out[key] = value
 		return format.format(**out)
-
-	def checkArg(self, arg:dict) -> dict:
-		data = {
-			"input": {},
-			"context": [
-				{
-					"var": "text",
-					"type": str,
-					"def": "default",
-					"req": False
-				}
-			]
-		}
-		out = {"status":"", "data":{}}
-		def err(r):
-			out["status"] = "failed"
-			out["data"]["msg"] = r
-			return out
-		def scs(r,d):
-			out["status"] = "success"
-			out["data"]["msg"] = r
-			out["data"]["normal"] = d
-			return out
-
-		if isinstance(arg, dict) is not True: return err("[checkArg] function argument not dict")
-		if ("input" in arg and "context" in arg) is not True: return err("[checkArg] input or context not in argument")
-		if isinstance(arg["context"], list) is not True: return err("[checkArg] context not an list")
-		if isinstance(arg["input"], dict) is not True: arg["input"] = {}
-
-		input = arg["input"]
-		inputOut = {}
-		context = arg["context"]
-
-		for v in context:
-			if isinstance(v, dict) is not True: return err("[checkArg] value include context is not a dict")
-			if ("var" in v and "type" in v) is not True: return err("[checkArg] value include context is not complete")
-
-			v["req"] = bool(v["req"]) if "req" in v else False
-
-			if (v["req"]) is not True:
-				if v["var"] in input:
-					if isinstance(input[v["var"]], v["type"]) is not True:
-						return err(f"{v["var"]} is wrong type (require {str(v["type"])} but received {type(input[v["var"]])})")
-					inputOut[v["var"]] = input[v["var"]]
-				else:
-					if v["type"] == list:
-						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
-						else: inputOut[v["var"]] = []
-
-					if v["type"] == tuple:
-						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
-						else: inputOut[v["var"]] = ()
-
-					if(v["type"] == dict):
-						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
-						else: inputOut[v["var"]] = {}
-
-					if(v["type"] == str):
-						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
-						else: inputOut[v["var"]] = ""
-
-					if(v["type"] == int):
-						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
-						else: inputOut[v["var"]] = 0
-
-					if(v["type"] == float):
-						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
-						else: inputOut[v["var"]] = 0.0
-
-					if(v["type"] == bool):
-						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
-						else: inputOut[v["var"]] = False
-
-					if(v["type"] == Callable):
-						if isinstance(v["def"], v["type"]): inputOut[v["var"]] = v["def"]
-						else: inputOut[v["var"]] = lambda:""
-			else:
-				try:
-					if isinstance(input[v["var"]], v["type"]) is not True:
-						return err(f"{v["var"]} is wrong type (require {str(v["type"])} but received {type(input[v["var"]])})")
-
-					if v["type"] == list and len(input[v["var"]]) <= 0:
-						return err(f"{v["var"]} is require but received emply list")
-					if v["type"] == tuple and len(input[v["var"]]) <= 0:
-						return err(f"{v["var"]} is require but received emply tuple")
-					if v["type"] == dict and len(input[v["var"]]) <= 0:
-						return err(f"{v["var"]} is require but received emply dict")
-					if v["type"] == str and len(input[v["var"]]) <= 0:
-						return err(f"{v["var"]} is require but received emply str")
-					inputOut[v["var"]] = input[v["var"]]
-				except KeyError:
-					return err(f"{v["var"]} is require")
-
-		return scs("[checkArg] sucess",inputOut)
 
 	def queryDB(self, select:list=["id"], table:list=["series"], where:dict={}, whereopt:str="AND") -> list:
 		db = sqlite3.connect(self.getInfo("config")["db_location"])
@@ -1115,6 +1023,9 @@ class Base:
 		finally:
 			db.close()
 
+	def getUUID(self) -> str:
+		return str(getattr(uuid, "uuid7", uuid.uuid4)())
+
 class Process:
 	def __init__(self, logged:Log|Callable|None=None) -> None:
 		self.logged:Log|Callable = logged if logged != None or isinstance(logged,Log) or isinstance(logged,Callable) else Base().logged
@@ -1122,7 +1033,7 @@ class Process:
 		self.progress:Progress = self.base.getInfo("progress")
 
 	def addSerie(self, args:dict) -> dict:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"provider", "type":str, "req":True},
@@ -1161,7 +1072,7 @@ class Process:
 		return {"status":status}
 
 	def addAuthor(self, args:dict) -> dict:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"provider", "type":str, "req":True},
@@ -1192,7 +1103,7 @@ class Process:
 		return {"status":status}
 
 	def updateSerie(self, args:dict) -> dict:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"provider", "type":str, "req":True},
@@ -1229,7 +1140,7 @@ class Process:
 		return {"status":status}
 
 	def downloadChapter(self, args:dict) -> dict:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"id", "type":str, "req":True},
@@ -1321,7 +1232,7 @@ class Process:
 				chapter["extension"] = image["extension"]
 				chapter["time"] = datetime.fromisoformat(datetime.now().isoformat()).strftime('%Y-%m-%d %H:%M:%S')
 				def percentCall(data):
-					checkInput = self.base.checkArg({
+					checkInput = checkArg({
 						"input":args,
 						"context":[{"var":"percent", "type":str, "req":True}]
 					})
@@ -1368,7 +1279,7 @@ class Process:
 		return {"status":status}
 
 	def markGroupsProp(self, args:dict) -> dict:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"groupid", "type":str, "req":True},
@@ -1397,7 +1308,7 @@ class Process:
 		if any(p["name"] in args for p in VALID_PROPS[1]["prop"]):
 			if not provider: groupdb[0].update({p["name"]:None for p in VALID_PROPS[1]["prop"] if p["name"] in args and any(r[p["name"]] != groupdb[0][p["name"]] for r in groupdb)})
 			if groupdb[0]["plugin"] is None: return {"status":"No match group plugin"}
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context": [{"var": p["name"], "type": p["type"], "req": False, "def": groupdb[0][p["name"]]} for t in VALID_PROPS for p in t["prop"]]
 		})
@@ -1429,7 +1340,7 @@ class Process:
 		return {"status":"Saved"}
 
 	def markSerieProp(self, args:dict) -> dict:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[{"var":"seriesid", "type":str, "req":True}]
 		})
@@ -1448,7 +1359,7 @@ class Process:
 		)
 
 		if len(seriedb)<1 or seriedb[0]["uid"]!=seriesid: return {"status":"No match series"}
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context": [{"var": p["name"], "type": p["type"], "req": False, "def": seriedb[0][p["name"]]} for t in VALID_PROPS for p in t["prop"]]
 		})
@@ -1479,7 +1390,7 @@ class Process:
 
 	def markChapterProp(self, args:dict) -> dict:
 		status=""
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"id", "type":str, "req":True},
@@ -1491,7 +1402,7 @@ class Process:
 		info = checkInput["data"]["normal"]
 		chapterdb = self.base.queryDB(select=["id","serie","plugin"],table=["chapter"],where={"id":args["id"],"series":args["serie"],"plugin":args["provider"]})
 		if len(chapterdb)>0 and chapterdb[0]["id"]==args["id"] and chapterdb[0]["series"]==args["serie"] and chapterdb[0]["plugin"]==args["provider"]:
-			checkInput = self.base.checkArg({
+			checkInput = checkArg({
 				"input":args,
 				"context":[{"var":"get", "type":bool, "req":False, "def":chapterdb[0]["get"]}]
 			})
@@ -1505,7 +1416,7 @@ class Process:
 		return {"status":status}
 
 	def updateCover(self, args:dict) -> dict:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"provider", "type":str, "req":True},
@@ -1593,7 +1504,7 @@ class Process:
 		return {"status":status}
 
 	def getChapterList(self,args):
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"provider", "type":str, "req":True},
@@ -1741,7 +1652,7 @@ class Process:
 		return {"status":"Saved settings"}
 
 	def downloadAllChapter(self,args):
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"provider", "type":str, "req":True},
@@ -1895,7 +1806,7 @@ class View:
 		return out
 
 	def knownSeriesChapter(self, args:dict) -> list:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"seriesid", "type":str, "req":True}
@@ -1938,7 +1849,7 @@ class View:
 		return out
 
 	def getCover(self, args:dict) -> bytes:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"provider", "type":str, "req":False, "def":False},
@@ -1948,9 +1859,19 @@ class View:
 		if checkInput["status"]=="failed": raise Exception(checkInput["data"]["msg"])
 		args=checkInput["data"]["normal"]
 
-		data = self.base.queryDB(select=["image"],table=["series"],where={"uid":args["id"]})
-		if data:
-			return data[0]["image"]
+		seriesdb = self.base.queryDB(select=["uid"],table=["series"],where={"uid":args["id"]})
+		if len(seriesdb)>0:
+			img = self.base.queryDB(select=["image"],table=["series"],where={"uid":args["id"]})
+			if len(img) > 0:
+				return img[0]["image"]
+			else:
+				db = self.base.queryDB(select=["series_ref.plugin AS plugin" "series_ref.ext_id AS ext_id"],table=["series LEFT JOIN series_ref ON series.uid=series_ref.series_uid"],where={"uid":args["id"]})
+				if len(img) > 0:
+					mod = Plugins(self.logged)
+					mod.loadModule(db[0]["plugin"], logged=self.logged)
+					return mod.getSerieInfo(db[0]["ext_id"])["cover"]
+				else:
+					return self.getAppBG({"color":"#000000","type":"color"})
 		elif args["provider"] in self.base.getInfo("provider"):
 			mod = Plugins(self.logged)
 			mod.loadModule(args["provider"], logged=self.logged)
@@ -1959,7 +1880,7 @@ class View:
 			return self.getAppBG({"color":"#000000","type":"color"})
 
 	def getAppBG(self, args:dict={}) -> bytes:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"id", "type":str, "req":False, "def":None},
@@ -1997,7 +1918,7 @@ class View:
 		return self.getAppBG({"color":"#000000", "type":"color"})
 
 	def searchSerie(self, args:dict) -> list:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"provider", "type":str, "req":True},
@@ -2015,7 +1936,7 @@ class View:
 			return []
 
 	def getSerieInfo(self, args:dict) -> dict:
-		checkInput = self.base.checkArg({
+		checkInput = checkArg({
 			"input":args,
 			"context":[
 				{"var":"provider", "type":str, "req":True},

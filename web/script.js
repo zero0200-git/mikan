@@ -440,8 +440,8 @@ for (let i=0; i<arg["data"].length; i++) {
 			document.querySelectorAll("#content .data > *[data-row='"+dataCol.dataset["row"]+"']").forEach(e=>{e.dataset["select"]="true"});
 			if(typeof dataCol.dataset["serieid"]=="string"){
 				document.querySelector("#serieCover").classList.remove("empty");
-				document.querySelector("#serieCover img").src="/api?type=getcover&id="+dataCol.dataset["serieid"];
-				document.body.style.setProperty("--background", "url(/api?type=getcover&id="+dataCol.dataset["serieid"]+")");
+				document.querySelector("#serieCover img").src="/api?type=getcover&id="+dataCol.dataset["serieid"]+"&provider="+dataCol.dataset["provider"];
+				document.body.style.setProperty("--background", "url(/api?type=getcover&id="+dataCol.dataset["serieid"]+"&provider="+dataCol.dataset["provider"]+")");
 			}else{
 				document.querySelector("#serieCover").classList.add("empty");
 				document.querySelector("#serieCover img").src="";
